@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>TargetBankr — Student Portal</title>
+<title>Target1st — Student Portal</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -376,7 +376,7 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
 <!-- AUTH -->
 <div id="screen-auth" class="screen">
   <div class="auth-card">
-    <h1>TargetBankr</h1>
+    <h1>Target1st</h1>
     <p class="sub">Mock Test Portal · Student Login</p>
     <div class="auth-tabs">
       <button class="auth-tab active" data-mode="signin" onclick="switchAuthTab('signin')">Sign In</button>
@@ -403,14 +403,14 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
       <button class="auth-btn" onclick="doForgot()">Send Reset Link</button>
       <div class="auth-link"><a onclick="switchAuthTab('signin')">← Back to Sign In</a></div>
     </div>
-    <div class="auth-foot">© TargetBankr · Online CBT Practice Portal</div>
+    <div class="auth-foot">© Target1st · Online CBT Practice Portal</div>
   </div>
 </div>
 
 <!-- CATEGORIES -->
 <div id="screen-categories" class="screen">
   <div class="top-ribbon">
-    <div class="brand">🏦 TargetBankr</div>
+    <div class="brand">🏦 Target1st</div>
     <div class="right">
       <span class="who" id="rib-who1">—</span>
       <button class="ribbon-btn" onclick="openDashboard()">📊 Dashboard</button>
@@ -419,7 +419,7 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
   </div>
   <div class="cat-wrap">
     <div class="cat-hero">
-      <h1 id="cat-greeting">Welcome to TargetBankr</h1>
+      <h1 id="cat-greeting">Welcome to Target1st</h1>
       <p>Choose a category to see all available mock tests in that stream.</p>
     </div>
     <h3 class="cat-section-title">Pick Your Exam Category</h3>
@@ -432,7 +432,7 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
 <!-- TEST SELECTION -->
 <div id="screen-tests" class="screen">
   <div class="top-ribbon">
-    <div class="brand">🏦 TargetBankr</div>
+    <div class="brand">🏦 Target1st</div>
     <div class="right">
       <span class="who" id="rib-who2">—</span>
       <button class="ribbon-btn ghost" onclick="doLogout()">Sign Out</button>
@@ -446,7 +446,7 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
         <h1 style="font-size:17px;margin:4px 0 0">Select Your Mock Test</h1>
         <p id="sel-sub">Loading…</p>
       </div>
-      <div style="text-align:right;font-size:12px;opacity:.85"><div>Powered by TargetBankr</div></div>
+      <div style="text-align:right;font-size:12px;opacity:.85"><div>Powered by Target1st</div></div>
     </div>
     <div class="sel-filters" id="sel-filters">
       <span>Filter:</span>
@@ -463,7 +463,7 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
 <!-- INSTRUCTIONS -->
 <div id="screen-instruction" class="screen">
   <div class="top-ribbon">
-    <div class="brand">🏦 TargetBankr</div>
+    <div class="brand">🏦 Target1st</div>
     <div class="right">
       <button class="ribbon-btn" onclick="goTests()">← Back to Tests</button>
       <button class="ribbon-btn ghost" onclick="doLogout()">Sign Out</button>
@@ -583,7 +583,7 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
 <!-- RESULT -->
 <div id="screen-result" class="screen">
   <div class="top-ribbon">
-    <div class="brand">🏦 TargetBankr</div>
+    <div class="brand">🏦 Target1st</div>
     <div class="right">
       <button class="ribbon-btn" onclick="goTests()">← Back to Tests</button>
       <button class="ribbon-btn ghost" onclick="doLogout()">Sign Out</button>
@@ -630,7 +630,7 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
 <!-- DASHBOARD -->
 <div id="screen-dashboard" class="screen">
   <div class="top-ribbon">
-    <div class="brand">🏦 TargetBankr</div>
+    <div class="brand">🏦 Target1st</div>
     <div class="right">
       <button class="ribbon-btn" onclick="goCategories()">← Back to Tests</button>
       <button class="ribbon-btn ghost" onclick="doLogout()">Sign Out</button>
@@ -719,17 +719,16 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
     <div class="modal-head">🔒 Unlock This Test</div>
     <div class="modal-body paywall-body">
       <div id="paywall-test-name" style="font-size:15px;font-weight:700;color:var(--c-blue-dark);margin-bottom:12px"></div>
-      <div class="paywall-price">₹<span id="paywall-price-val">299</span></div>
-      <div class="paywall-note">Full Subscription · All mocks unlocked for 3 months</div>
+      <div class="paywall-price">₹<span id="paywall-price-val">99</span></div>
+      <div class="paywall-note">Bundle · Unlocks all 10 mocks for this exam</div>
       <ul class="paywall-features">
-        <li>✅ All IBPS, SBI, RBI &amp; other exam mocks</li>
-        <li>✅ Full mocks, sectionals, PYQs &amp; practice sets</li>
+        <li>✅ All 10 mock tests for this exam</li>
         <li>✅ Detailed solutions &amp; explanations</li>
         <li>✅ Score tracking, leaderboard &amp; dashboard</li>
-        <li>✅ 3-month unlimited access</li>
+        <li>✅ Lifetime access to this bundle</li>
       </ul>
-      <button class="btn btn-primary" id="btn-pay-now" style="width:100%;padding:13px;font-size:15px">💳 Subscribe &amp; Get Instant Access</button>
-      <p style="font-size:11px;color:var(--c-muted);margin:10px 0 0">Secure payment via Razorpay · ₹299 for 3 months</p>
+      <button class="btn btn-primary" id="btn-pay-now" style="width:100%;padding:13px;font-size:15px">💳 Unlock Bundle Now</button>
+      <p style="font-size:11px;color:var(--c-muted);margin:10px 0 0">Secure payment via Razorpay</p>
     </div>
     <div class="modal-foot"><button class="btn btn-ghost" onclick="hideModal('modal-paywall')">Maybe Later</button></div>
   </div>
@@ -737,20 +736,19 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
 
 <script>
 /* =====================================================================
-   TargetBankr — Student Portal v3
+   Target1st — Student Portal v3
    CHANGES FROM v2:
    FIX 1 — Tab locking corrected: Open mode tabs never show 🔒 and are
             always freely switchable. Only in Locked mode are tabs locked.
    FIX 2 — Descriptive question type fully supported (essay/letter/para).
             Live word count, hints panel, answer textarea, review modal.
    FIX 3 — description column on test cards (was already present, kept).
-   NEW   — Subscription paywall via Firestore + Razorpay.
-            One free mock (is_paid=no), all others gated.
-   SHEET — New columns needed in Questions tab:
-            descriptive_type | descriptive_word_limit |
-            descriptive_key_points | descriptive_opening
-           New columns needed in Tests tab:
-            is_paid | price_inr
+   NEW   — Data backend migrated from Google Sheets/Apps Script to
+            Firestore. Pricing model: per-exam bundle (10 mocks for a
+            flat price, e.g. ₹99), not a global subscription.
+            Firestore collections: exams, tests, sections, questions.
+            tests.exam_id links a test to its bundle in "exams".
+            tests.is_demo="yes" marks the one always-free mock.
 ===================================================================== */
 
 /* ---- 1. FIREBASE CONFIG ---- */
@@ -763,26 +761,8 @@ const firebaseConfig = {
   appId:             "1:913932479459:web:85f68c15f021232c5b4ed6"
 };
 
-/* ---- 2. SHEET CSV URLS ---- */
-const SHEET_TESTS_CSV     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR3Bn4A2FYFj8vjKZlIXvx7vD2Me6BmlaLkxFaM4eeDAlTCZzKjuCBe9nx47v7g8D3UiEOWCCbUmScV/pub?gid=574933724&single=true&output=csv";
-const SHEET_CONFIG_CSV    = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR3Bn4A2FYFj8vjKZlIXvx7vD2Me6BmlaLkxFaM4eeDAlTCZzKjuCBe9nx47v7g8D3UiEOWCCbUmScV/pub?gid=1893461302&single=true&output=csv";
-const SHEET_QUESTIONS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR3Bn4A2FYFj8vjKZlIXvx7vD2Me6BmlaLkxFaM4eeDAlTCZzKjuCBe9nx47v7g8D3UiEOWCCbUmScV/pub?gid=368223045&single=true&output=csv";
-let   APPS_SCRIPT_URL     = "https://script.google.com/macros/s/AKfycbxlgb6KlusPz0EHAdMQATnB7tzsEKqQvo0Bx03wR6hv1sRmOJAzhbb_wzy8kfPpShC5/exec";
-
-/* ---- 3. RAZORPAY / SUBSCRIPTION ---- */
-// Replace with your real Razorpay key_id from dashboard.razorpay.com
-const RAZORPAY_KEY       = "rzp_live_SisR5ciwqWpzmz";
-const SUBSCRIPTION_PRICE = 4900;   // paise (₹49)
-const SUBSCRIPTION_MONTHS = 3;
-
-(function resolveScriptUrl(){
-  try {
-    const ls = localStorage.getItem("tb_script_url");
-    if (ls && ls.trim()) APPS_SCRIPT_URL = ls.trim();
-    const qp = new URLSearchParams(location.search).get("api");
-    if (qp && qp.trim()) { APPS_SCRIPT_URL = qp.trim(); localStorage.setItem("tb_script_url", APPS_SCRIPT_URL); }
-  } catch(_){}
-})();
+/* ---- 2. RAZORPAY (bundle pricing is per-exam, loaded from Firestore "exams" collection) ---- */
+const RAZORPAY_KEY = "rzp_live_SisR5ciwqWpzmz";
 
 /* ---- DRIVE URL CONVERTER ---- */
 function extractDriveId(url){
@@ -815,14 +795,15 @@ const ERR = {
   "ERR-107":"This test has no sections configured."
 };
 
-/* ---- DEMO DATA ---- */
+/* ---- DEMO DATA (shown only if Firestore has no tests yet, or a read fails) ---- */
 const DEMO_TESTS = [
   {test_id:"demo",test_name:"IBPS PO Full Mock — Demo",test_type:"Full Mock",category:"Banking",
-   description:"A short demo covering English, Reasoning, and Quant. Free mock — no subscription needed.",
-   total_questions:"6",total_minutes:"15",is_active:"yes",is_paid:"no"}
+   description:"A short demo covering English, Reasoning, and Quant. Free mock — no purchase needed.",
+   total_questions:"6",total_minutes:"15",is_active:"yes",is_demo:"yes",exam_id:""}
 ];
+const DEMO_EXAMS = [];
 const DEMO_CONFIG = [
-  {test_id:"demo",exam_name:"TargetBankr Demo",section_id:"1",section_name:"English Language",num_questions:"2",time_minutes:"5",marks_correct:"1",marks_negative:"0.25",instructions:""},
+  {test_id:"demo",exam_name:"Target1st Demo",section_id:"1",section_name:"English Language",num_questions:"2",time_minutes:"5",marks_correct:"1",marks_negative:"0.25",instructions:""},
   {test_id:"demo",exam_name:"",section_id:"2",section_name:"Reasoning Ability",num_questions:"2",time_minutes:"5",marks_correct:"1",marks_negative:"0.25",instructions:""},
   {test_id:"demo",exam_name:"",section_id:"3",section_name:"Quantitative Aptitude",num_questions:"2",time_minutes:"5",marks_correct:"1",marks_negative:"0.25",instructions:""}
 ];
@@ -864,9 +845,9 @@ const DEMO_QUESTIONS = [
 const STORAGE_KEY = "tb_student_state_v3";
 const state = {
   user:null, profile:{name:"",phone:"",email:""},
-  userAccess:{hasSubscription:false,subscriptionExpiry:null,purchasedTests:[]},
+  userAccess:{purchasedExams:[]},
   _pendingTest:null,
-  allTests:[], allConfig:[], allQuestions:[],
+  allTests:[], allConfig:[], allQuestions:[], allExams:[],
   selectedCategory:null, selectedTestId:null, examName:"",
   sections:[], questionsBySection:{},
   candidate:{name:"",email:""},
@@ -951,116 +932,89 @@ function friendlyAuthErr(e){
   return "❌ "+(map[code]||e.message||"Sign-in failed.");
 }
 
-/* ===================== SUBSCRIPTION / ACCESS ===================== */
+/* ===================== BUNDLE ACCESS ===================== */
 async function loadUserAccess(){
-  state.userAccess={hasSubscription:false,subscriptionExpiry:null,purchasedTests:[]};
+  state.userAccess={purchasedExams:[]};
   if(!db||!state.user) return;
   try {
     const doc=await db.collection("users").doc(state.user.uid).get();
     if(!doc.exists) return;
-    const d=doc.data(); let hasActive=false;
-    const sub=d.subscription||null;
-    if(sub&&sub.expires_at){
-      const exp=sub.expires_at.toDate?sub.expires_at.toDate():new Date(sub.expires_at);
-      if(exp>new Date()) hasActive=true;
-    }
-    state.userAccess={hasSubscription:hasActive,subscriptionExpiry:sub?.expires_at||null,purchasedTests:d.purchased_tests||[]};
+    const d=doc.data();
+    state.userAccess={purchasedExams:d.purchased_exams||[]};
   } catch(e){ console.warn("Could not load user access:",e.message); }
 }
+function examFor(test){ const examId=(test.exam_id||"").trim(); if(!examId) return null; return (state.allExams||[]).find(e=>(e.exam_id||"").trim()===examId)||null; }
 function hasAccessToTest(test){
-  if((test.is_paid||"no").toLowerCase()!=="yes") return true;
-  if(state.userAccess.hasSubscription) return true;
-  if((state.userAccess.purchasedTests||[]).includes(test.test_id)) return true;
-  return false;
+  if((test.is_demo||"no").toLowerCase()==="yes") return true;
+  const examId=(test.exam_id||"").trim();
+  if(!examId) return true; // no bundle assigned to this test yet — fail-open so it isn't accidentally unpurchasable
+  return (state.userAccess.purchasedExams||[]).includes(examId);
 }
+function bundlePriceFor(test){ const ex=examFor(test); return Math.round(parseFloat(ex&&ex.bundle_price_inr!=null?ex.bundle_price_inr:99))||99; }
 function showPaywall(test){
-  state._pendingTest=test;
-  $("#paywall-test-name").textContent=test.test_name||"This Test";
-  $("#paywall-price-val").textContent=Math.round(SUBSCRIPTION_PRICE/100);
+  const exam=examFor(test);
+  state._pendingTest=test; state._pendingExam=exam;
+  $("#paywall-test-name").textContent=(exam&&exam.exam_name)||test.test_name||"This Test";
+  $("#paywall-price-val").textContent=bundlePriceFor(test);
   $("#btn-pay-now").onclick=openRazorpay;
   showModal("modal-paywall");
 }
 function openRazorpay(){
-  if(RAZORPAY_KEY.includes("PASTE_")){ showError("Razorpay key not configured yet. Add your key_id to the RAZORPAY_KEY constant in student-portal.html."); return; }
+  if(RAZORPAY_KEY.includes("PASTE_")){ showError("Razorpay key not configured yet.",null); return; }
+  const test=state._pendingTest||{}; const exam=state._pendingExam;
+  const priceInr=bundlePriceFor(test);
   const options={
-    key:RAZORPAY_KEY, amount:SUBSCRIPTION_PRICE, currency:"INR",
-    name:"TargetBankr", description:`Full Subscription — ${SUBSCRIPTION_MONTHS} Months`,
+    key:RAZORPAY_KEY, amount:priceInr*100, currency:"INR",
+    name:"Target1st", description:`10 Mock Tests — ${(exam&&exam.exam_name)||test.test_name||"Bundle"}`,
     prefill:{email:state.user?.email||"",name:state.profile.name||""},
     theme:{color:"#1F4E79"},
-    handler:async function(response){ hideModal("modal-paywall"); setSaveStatus("⏳ Verifying payment & activating subscription…","saving"); await grantAccessAfterPayment(response.razorpay_payment_id); }
+    handler:async function(response){ hideModal("modal-paywall"); setSaveStatus("⏳ Verifying payment & unlocking bundle…","saving"); await grantAccessAfterPayment(response.razorpay_payment_id); }
   };
   const rzp=new Razorpay(options);
-  rzp.on("payment.failed",()=>showError("Payment failed. Please try again."));
+  rzp.on("payment.failed",()=>setSaveStatus("❌ Payment failed. Please try again.","err"));
   rzp.open();
 }
 async function grantAccessAfterPayment(paymentId){
+  const test=state._pendingTest||{}; const exam=state._pendingExam;
+  const examId=(test.exam_id||"").trim();
   try {
-    if(APPS_SCRIPT_URL){
-      fetch(APPS_SCRIPT_URL,{method:"POST",redirect:"follow",headers:{"Content-Type":"text/plain;charset=utf-8"},
-        body:JSON.stringify({action:"grantAccess",uid:state.user.uid,email:state.user.email,name:state.profile.name||"",
-          payment_id:paymentId,type:"subscription",months:SUBSCRIPTION_MONTHS,amount:SUBSCRIPTION_PRICE/100})}).catch(()=>{});
-    }
-    if(db&&state.user){
-      const expiry=new Date(); expiry.setMonth(expiry.getMonth()+SUBSCRIPTION_MONTHS);
+    if(db&&state.user&&examId){
       await db.collection("users").doc(state.user.uid).set({
         email:state.user.email, name:state.profile.name||"",
-        subscription:{payment_id:paymentId,expires_at:firebase.firestore.Timestamp.fromDate(expiry),months:SUBSCRIPTION_MONTHS,activated_at:firebase.firestore.FieldValue.serverTimestamp()}
+        purchased_exams: firebase.firestore.FieldValue.arrayUnion(examId)
       },{merge:true});
+      await db.collection("purchases").add({
+        uid:state.user.uid, email:state.user.email, exam_id:examId, exam_name:(exam&&exam.exam_name)||"",
+        amount_inr:bundlePriceFor(test), payment_id:paymentId, created_at:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      state.userAccess.purchasedExams=[...(state.userAccess.purchasedExams||[]),examId];
     }
-    state.userAccess.hasSubscription=true;
-    setSaveStatus("✅ Subscription activated! You now have full access.","ok");
-    setTimeout(()=>{ renderTestSelectionScreen(); if(state._pendingTest) loadTest(state._pendingTest.test_id); },1500);
+    setSaveStatus("✅ Bundle unlocked! You now have access to all 10 mocks.","ok");
+    setTimeout(()=>{ renderTestSelectionScreen(); if(state._pendingTest) loadTest(state._pendingTest.test_id); },1200);
   } catch(e){ setSaveStatus(`❌ Payment recorded (ID: ${paymentId}) but access setup failed. Contact support with this ID.`,"err"); }
 }
 
-/* ===================== CSV PARSER ===================== */
-function parseCSV(text){
-  const rows=[]; let cur=[],field="",i=0,inQ=false;
-  const t=text.replace(/\r\n/g,"\n").replace(/\r/g,"\n");
-  while(i<t.length){ const c=t[i];
-    if(inQ){ if(c==='"'){ if(t[i+1]==='"'){field+='"';i+=2;continue;} inQ=false;i++;continue; } field+=c;i++;continue; }
-    if(c==='"'){inQ=true;i++;continue;} if(c===','){cur.push(field);field="";i++;continue;}
-    if(c==='\n'){cur.push(field);rows.push(cur);cur=[];field="";i++;continue;} field+=c;i++;
-  }
-  if(field.length>0||cur.length>0){cur.push(field);rows.push(cur);}
-  while(rows.length&&rows[rows.length-1].every(c=>c.trim()==="")) rows.pop();
-  if(rows.length===0) return [];
-  const headers=rows[0].map(h=>h.trim().toLowerCase());
-  return rows.slice(1).map(r=>{const o={};headers.forEach((h,idx)=>o[h]=(r[idx]??"").trim());return o;});
-}
-async function fetchCSV(url){ const res=await fetch(url,{cache:"no-store"}); if(!res.ok) throw new Error("HTTP "+res.status); return parseCSV(await res.text()); }
-
-/* ===================== DATA LOADING ===================== */
+/* ===================== DATA LOADING (Firestore) ===================== */
 async function loadAllData(){
-  // No URLs set — use demo silently
-  if(!SHEET_TESTS_CSV && !SHEET_CONFIG_CSV && !SHEET_QUESTIONS_CSV){
-    state.allTests=DEMO_TESTS; state.allConfig=DEMO_CONFIG; state.allQuestions=DEMO_QUESTIONS;
-    state._usingDemo=true; return;
-  }
-  // Try each tab separately so we can report which one failed
-  const errs=[];
-  const tryFetch = async (label, url) => {
-    try {
-      const res = await fetch(url, {cache:"no-store"});
-      if(!res.ok) throw new Error("HTTP "+res.status);
-      const text = await res.text();
-      if(!text||text.trim().length<5) throw new Error("Empty response");
-      return parseCSV(text);
-    } catch(e) { errs.push(label+": "+e.message); console.error("CSV fail:",label,e.message); return null; }
-  };
-  const [tests,cfg,qs] = await Promise.all([
-    tryFetch("Tests tab", SHEET_TESTS_CSV),
-    tryFetch("Config tab", SHEET_CONFIG_CSV),
-    tryFetch("Questions tab", SHEET_QUESTIONS_CSV)
-  ]);
-  if(tests && cfg && qs){
-    state.allTests=tests; state.allConfig=cfg; state.allQuestions=qs;
-    state._usingDemo=false; state._sheetErrors=[];
-  } else {
-    // Graceful fallback to demo — no hard crash
-    state.allTests=DEMO_TESTS; state.allConfig=DEMO_CONFIG; state.allQuestions=DEMO_QUESTIONS;
-    state._usingDemo=true; state._sheetErrors=errs;
-    console.warn("Sheet fetch failed, using demo data. Errors:", errs);
+  try {
+    if(!db) throw new Error("Firestore not initialized");
+    const [testsSnap,sectionsSnap,questionsSnap,examsSnap] = await Promise.all([
+      db.collection("tests").get(),
+      db.collection("sections").get(),
+      db.collection("questions").get(),
+      db.collection("exams").get()
+    ]);
+    const tests=testsSnap.docs.map(d=>d.data());
+    if(tests.length===0) throw new Error("No tests found in Firestore yet");
+    state.allTests=tests;
+    state.allConfig=sectionsSnap.docs.map(d=>d.data());
+    state.allQuestions=questionsSnap.docs.map(d=>d.data());
+    state.allExams=examsSnap.docs.map(d=>d.data());
+    state._usingDemo=false; state._dataErrors=[];
+  } catch(e) {
+    state.allTests=DEMO_TESTS; state.allConfig=DEMO_CONFIG; state.allQuestions=DEMO_QUESTIONS; state.allExams=DEMO_EXAMS;
+    state._usingDemo=true; state._dataErrors=[e.message];
+    console.warn("Firestore data load failed, using demo data:", e.message);
   }
 }
 function normalizeConfig(cfgRows){
@@ -1130,11 +1084,12 @@ function renderTestSelectionScreen(){
       const type=(t.test_type||"Practice").trim(); const lc=type.toLowerCase();
       const typeCls=lc.includes("full")?"full":lc.includes("section")?"sectional":lc.includes("pyq")?"pyq":"practice";
       const isLocked=(t.is_lock||"no").trim().toLowerCase()==="yes";
-      const isPaid=(t.is_paid||"no").toLowerCase()==="yes";
+      const isDemo=(t.is_demo||"no").toLowerCase()==="yes";
       const hasAccess=hasAccessToTest(t);
-      const paidBadge=isPaid&&!hasAccess?`<span class="tc-paid-lock">🔒 PAID</span>`:isPaid&&hasAccess?`<span class="tc-paid-unlocked">✅ Unlocked</span>`:`<span style="font-size:10px;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-weight:700">🆓 Free</span>`;
-      const btnStyle=isPaid&&!hasAccess?`background:#f39c12`:``;
-      const btnLabel=isPaid&&!hasAccess?`🔒 Subscribe to Unlock`:`Start Test →`;
+      const price=bundlePriceFor(t);
+      const paidBadge=isDemo?`<span style="font-size:10px;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-weight:700">🆓 Free</span>`:hasAccess?`<span class="tc-paid-unlocked">✅ Unlocked</span>`:`<span class="tc-paid-lock">🔒 ₹${price} Bundle</span>`;
+      const btnStyle=(!isDemo&&!hasAccess)?`background:#f39c12`:``;
+      const btnLabel=(!isDemo&&!hasAccess)?`🔒 Unlock 10 Mocks — ₹${price}`:`Start Test →`;
       return `<div class="test-card" data-tid="${escHTML(t.test_id)}">
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           <span class="tc-type ${typeCls}">${escHTML(type)}</span>
@@ -1360,7 +1315,7 @@ function openSubmitConfirm(){
   const dw=document.getElementById("confirm-desc-warn"); if(dw) dw.innerHTML=unansweredDesc>0?`<p style="margin:12px 0 0;padding:8px 12px;background:#f5eef8;border:1px solid #d7bde2;border-radius:4px;color:#6c3483;font-size:12px">✍ <b>${unansweredDesc} descriptive question${unansweredDesc>1?"s":""}</b> ha${unansweredDesc>1?"ve":"s"} less than 20 characters and will be marked as not attempted.</p>`:"";
   showModal("modal-confirm-submit");
 }
-async function finalizeExam(){ if(state.examFinished) return; state.examFinished=true; state.finishedAt=Date.now(); state.sections.forEach(s=>{ state.sectionLocked[s.section_id]=true; }); stopTimer(); saveState(); renderResultScreen(); const isFirst=await checkFirstAttempt(state.selectedTestId); if(isFirst){ postScoreToSheet(); updateLeaderboard(); } saveAttemptToFirestore(isFirst); }
+async function finalizeExam(){ if(state.examFinished) return; state.examFinished=true; state.finishedAt=Date.now(); state.sections.forEach(s=>{ state.sectionLocked[s.section_id]=true; }); stopTimer(); saveState(); renderResultScreen(); setSaveStatus("⏳ Saving your score…","saving"); const isFirst=await checkFirstAttempt(state.selectedTestId); if(isFirst){ updateLeaderboard(); } await saveAttemptToFirestore(isFirst); }
 
 /* ---- Scoring ---- */
 function computeResults(){
@@ -1373,18 +1328,17 @@ function computeResults(){
 }
 function setSaveStatus(msg,kind){ let el=document.getElementById("score-save-status"); if(!el){ el=document.createElement("div"); el.id="score-save-status"; el.style.cssText="margin:14px auto;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;text-align:center;max-width:600px;"; const host=document.getElementById("res-cards")||document.body; host.parentNode?host.parentNode.insertBefore(el,host):document.body.appendChild(el); } const colors={saving:["#fef3c7","#92400e"],ok:["#dcfce7","#166534"],err:["#fee2e2","#991b1b"]}; const [bg,fg]=colors[kind]||colors.saving; el.style.background=bg; el.style.color=fg; el.textContent=msg; }
 
-async function postScoreToSheet(){
-  if(!APPS_SCRIPT_URL){ setSaveStatus("⚠ Score not saved — Apps Script URL not set.","err"); return; }
-  const {sectionResults,total}=computeResults();
-  const payload={action:"submitScore",timestamp:new Date().toISOString(),candidate_name:state.candidate.name||(state.user&&(state.user.displayName||state.user.email))||"Anonymous",candidate_email:state.candidate.email||(state.user&&state.user.email)||"",candidate_number:state.profile&&state.profile.phone||"",exam_name:state.examName,total_score:total.score,total_attempted:total.attempted,total_correct:total.correct,total_wrong:total.wrong,accuracy_pct:total.accuracy,time_taken_seconds:Math.round(total.time),section_breakdown:sectionResults.map(r=>({section:r.section_name,attempted:r.attempted,correct:r.correct,wrong:r.wrong,score:r.score,time_sec:Math.round(r.time)}))};
-  setSaveStatus("⏳ Saving your score…","saving");
-  try { const res=await fetch(APPS_SCRIPT_URL,{method:"POST",body:JSON.stringify(payload),headers:{"Content-Type":"text/plain;charset=utf-8"},redirect:"follow"}); let json=null; try{json=await res.json();}catch(_){} if(json&&json.success===false) setSaveStatus("❌ Score save failed: "+(json.message||"Unknown error"),"err"); else if(!res.ok) setSaveStatus("❌ Score save failed (HTTP "+res.status+")","err"); else setSaveStatus("✅ Score saved to sheet.","ok"); }
-  catch(e){ try{ await fetch(APPS_SCRIPT_URL,{method:"POST",mode:"no-cors",redirect:"follow",body:JSON.stringify(payload),headers:{"Content-Type":"text/plain;charset=utf-8"}}); setSaveStatus("✅ Score sent (verify in Scores tab).","ok"); } catch(e2){ setSaveStatus("❌ Score save failed — "+(e.message||e),"err"); } }
-}
-
 /* ===================== FIRESTORE ===================== */
 async function checkFirstAttempt(testId){ if(!db||!state.user) return true; try{ const snap=await db.collection("users").doc(state.user.uid).collection("attempts").where("test_id","==",testId).limit(1).get(); return snap.empty; }catch(_){ return true; } }
-async function saveAttemptToFirestore(isFirstAttempt){ if(!db||!state.user) return; const {sectionResults,total}=computeResults(); try{ const doc={test_id:state.selectedTestId,test_name:state.examName,uid:state.user.uid,candidate_name:state.candidate.name,candidate_email:state.candidate.email,score:total.score,correct:total.correct,wrong:total.wrong,attempted:total.attempted,accuracy_pct:total.accuracy,time_taken_sec:Math.round(total.time),timestamp:firebase.firestore.FieldValue.serverTimestamp(),is_first_attempt:isFirstAttempt,section_breakdown:sectionResults.map(r=>({section_id:r.section_id,section_name:r.section_name,total:r.total,attempted:r.attempted,correct:r.correct,wrong:r.wrong,score:r.score,accuracy_pct:r.accuracy,time_sec:Math.round(r.time)}))}; await db.collection("users").doc(state.user.uid).collection("attempts").add(doc); }catch(e){ console.error("Firestore save failed:",e.message); } }
+async function saveAttemptToFirestore(isFirstAttempt){
+  if(!db||!state.user){ setSaveStatus("⚠ Score not saved — not signed in.","err"); return; }
+  const {sectionResults,total}=computeResults();
+  try{
+    const doc={test_id:state.selectedTestId,test_name:state.examName,uid:state.user.uid,candidate_name:state.candidate.name,candidate_email:state.candidate.email,score:total.score,correct:total.correct,wrong:total.wrong,attempted:total.attempted,accuracy_pct:total.accuracy,time_taken_sec:Math.round(total.time),timestamp:firebase.firestore.FieldValue.serverTimestamp(),is_first_attempt:isFirstAttempt,section_breakdown:sectionResults.map(r=>({section_id:r.section_id,section_name:r.section_name,total:r.total,attempted:r.attempted,correct:r.correct,wrong:r.wrong,score:r.score,accuracy_pct:r.accuracy,time_sec:Math.round(r.time)}))};
+    await db.collection("users").doc(state.user.uid).collection("attempts").add(doc);
+    setSaveStatus("✅ Score saved.","ok");
+  }catch(e){ console.error("Firestore save failed:",e.message); setSaveStatus("❌ Score save failed — "+(e.message||e),"err"); }
+}
 async function updateLeaderboard(){ if(!db||!state.user) return; const {total}=computeResults(); try{ await db.collection("leaderboard").doc(state.selectedTestId).collection("entries").doc(state.user.uid).set({uid:state.user.uid,name:state.candidate.name,email:state.candidate.email,score:total.score,correct:total.correct,wrong:total.wrong,accuracy_pct:total.accuracy,timestamp:firebase.firestore.FieldValue.serverTimestamp()}); }catch(e){ console.error("Leaderboard update failed:",e.message); } }
 async function openLeaderboard(testId){ if(!testId){ showError("No test selected."); return; } const testName=state.allTests.find(t=>t.test_id===testId)?.test_name||testId; $("#ldr-head").textContent=`🏆 Leaderboard — ${testName}`; showModal("modal-leaderboard",`<div class='ldr-empty'>Loading…</div>`); if(!db){ $("#ldr-body").innerHTML=`<div class='ldr-empty'>Firestore not initialised.</div>`; return; } try{ const snap=await db.collection("leaderboard").doc(testId).collection("entries").orderBy("score","desc").limit(50).get(); if(snap.empty){ $("#ldr-body").innerHTML=`<div class='ldr-empty'>No entries yet. Be the first!</div>`; return; } const myUid=state.user?.uid; let rank=0,html=`<table class='ldr-table'><thead><tr><th>#</th><th>Name</th><th>Score</th><th>Correct</th><th>Accuracy</th></tr></thead><tbody>`; snap.forEach(doc=>{ const e=doc.data(); rank++; const isMe=doc.id===myUid; const rankStr=rank===1?"🥇":rank===2?"🥈":rank===3?"🥉":rank; html+=`<tr class="${isMe?"me":""}"><td class="ldr-rank">${rankStr}</td><td>${escHTML(e.name||"—")}${isMe?" <span style='color:#1d8a4a;font-size:11px'>(you)</span>":""}</td><td>${e.score??0}</td><td>${e.correct??0}</td><td>${e.accuracy_pct??0}%</td></tr>`; }); html+=`</tbody></table>`; $("#ldr-body").innerHTML=html; }catch(e){ $("#ldr-body").innerHTML=`<div class='ldr-empty'>Failed: ${escHTML(e.message)}</div>`; } }
 
@@ -1478,28 +1432,27 @@ async function boot(){
     await loadUserAccess();
     await loadAllData();
     renderCategoriesScreen();
-    // If sheet failed, show a dismissible diagnostic banner
-    if(state._usingDemo && state._sheetErrors && state._sheetErrors.length>0){
-      showSheetErrorBanner(state._sheetErrors);
+    // If Firestore read failed, show a dismissible diagnostic banner
+    if(state._usingDemo && state._dataErrors && state._dataErrors.length>0){
+      showDataErrorBanner(state._dataErrors);
     }
   });
 }
 
-function showSheetErrorBanner(errors){
-  // Remove any existing banner
-  const old = document.getElementById("sheet-err-banner");
+function showDataErrorBanner(errors){
+  const old = document.getElementById("data-err-banner");
   if(old) old.remove();
   const banner = document.createElement("div");
-  banner.id = "sheet-err-banner";
+  banner.id = "data-err-banner";
   banner.style.cssText = "position:fixed;bottom:0;left:0;right:0;background:#1e2a3a;color:#f9e03b;padding:12px 18px;font-size:12px;z-index:200;display:flex;gap:12px;align-items:flex-start;line-height:1.5";
   banner.innerHTML = `
     <div style="flex:1">
-      <b>⚠ Sheet CSV not loaded — showing demo data.</b>
-      Likely cause: your Google Sheet tabs are not published as CSV yet, or the URLs in the HTML are wrong.<br/>
-      <span style="opacity:.8">Errors: ${errors.join(" | ")}</span><br/>
-      <b style="color:#7ef">Fix:</b> In your Google Sheet → File → Share → Publish to web → select each tab → CSV → Publish. Paste the URLs into <code style="background:#fff2;padding:1px 4px;border-radius:2px">student-portal-v3.html</code> at the top of the &lt;script&gt; block.
+      <b>⚠ Test data not loaded from Firestore — showing demo data.</b>
+      Likely cause: the "tests" collection is empty, or Firestore security rules are blocking reads for signed-in users.<br/>
+      <span style="opacity:.8">Error: ${escHTML(errors.join(" | "))}</span><br/>
+      <b style="color:#7ef">Fix:</b> Add tests via the admin panel, and check your Firestore rules allow read access to signed-in users on tests/sections/questions/exams.
     </div>
-    <button onclick="document.getElementById('sheet-err-banner').remove()" style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:6px 12px;border-radius:4px;cursor:pointer;flex-shrink:0;font-size:12px">✕ Dismiss</button>
+    <button onclick="document.getElementById('data-err-banner').remove()" style="background:rgba(255,255,255,.15);border:none;color:#fff;padding:6px 12px;border-radius:4px;cursor:pointer;flex-shrink:0;font-size:12px">✕ Dismiss</button>
     <button onclick="location.reload()" style="background:#f9e03b;border:none;color:#1e2a3a;padding:6px 12px;border-radius:4px;cursor:pointer;flex-shrink:0;font-size:12px;font-weight:700">🔄 Retry</button>
   `;
   document.body.appendChild(banner);
