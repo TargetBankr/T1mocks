@@ -1149,7 +1149,7 @@ function renderTestSelectionScreen(){
   $("#sel-filters").querySelectorAll(".filter-btn").forEach(btn=>{ btn.onclick=()=>{ currentFilter=btn.dataset.filter; $("#sel-filters").querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); renderCards(currentFilter); }; });
   showScreen("screen-tests");
 }
-function goTests(){ if(state.examStarted&&!state.examFinished){ if(!confirm("Leave the exam? Your progress is saved locally.")) return; } exitFullscreenLandscape(); state.examStarted=false; if(state.selectedCategory) renderTestSelectionScreen(); else renderCategoriesScreen(); }
+function goTests(){ if(state.examStarted&&!state.examFinished){ if(!confirm("Leave the exam? Your progress is saved locally.")) return; } exitFullscreenLandscape(); disarmExamBackGuard(); state.examStarted=false; if(state.selectedCategory) renderTestSelectionScreen(); else renderCategoriesScreen(); }
 
 /* ===================== LOAD A TEST ===================== */
 async function loadTest(testId){
@@ -1223,13 +1223,50 @@ function initFreshExamState(){
   state.currentSectionId=state.sections[0]?.section_id||null; state.currentQIdx=0;
   state.examStarted=true; state.examFinished=false; state.startedAt=Date.now(); state.lastTickAt=Date.now(); saveState();
 }
+/* ===================== BACK-BUTTON GUARD (during an active exam) ===================== */
+/* Traps the hardware/browser back button while a test is in progress so it can't silently
+   exit without warning. Progress is already autosaved via saveState()/localStorage regardless,
+   but this makes leaving an explicit, confirmed choice instead of an accident. */
+let _backGuardActive=false;
+function armExamBackGuard(){
+  if(_backGuardActive) return;
+  _backGuardActive=true;
+  history.pushState({examGuard:true},"",location.href);
+  window.addEventListener("popstate",handleExamPopState);
+}
+function disarmExamBackGuard(){
+  if(!_backGuardActive) return;
+  _backGuardActive=false;
+  window.removeEventListener("popstate",handleExamPopState);
+}
+function handleExamPopState(){
+  if(state.examStarted&&!state.examFinished){
+    saveState();
+    if(confirm("Leave the exam? Your progress is saved — you can resume from exactly where you left off.")){
+      disarmExamBackGuard();
+      history.back();
+    } else {
+      history.pushState({examGuard:true},"",location.href);
+    }
+  } else {
+    disarmExamBackGuard();
+  }
+}
+window.addEventListener("beforeunload",function(e){
+  if(state.examStarted&&!state.examFinished){
+    saveState();
+    e.preventDefault();
+    e.returnValue="";
+  }
+});
+
 function enterExam(){
   if(!state.currentSectionId) return showError(null,"ERR-107");
   $("#tb-cand-name").textContent=state.candidate.name||"Candidate";
   $("#tb-cand-num").textContent=state.candidate.email||"";
   $("#tb-avatar").textContent=initials(state.candidate.name);
   $("#tb-exam-title").textContent=state.examName;
-  showScreen("screen-exam"); renderSectionTabs(); renderPalette(); renderCurrentQuestion(); startTimer();
+  showScreen("screen-exam"); renderSectionTabs(); renderPalette(); renderCurrentQuestion(); startTimer(); armExamBackGuard();
 }
 
 /* FIX 1 — Tab locking: locked class only in isLock mode */
@@ -1246,8 +1283,7 @@ function renderSectionTabs(){
     btn.addEventListener("click",()=>{
       const sid=btn.dataset.sid;
       if(state.isLock){ if(sid!==state.currentSectionId) return showError("Tab switching is disabled in Locked Mode. Complete or submit the current section to proceed."); return; }
-      // Open mode: free switching; sectionLocked only true if student manually submitted
-      if(state.sectionLocked[sid]) return showError("This section has already been submitted.");
+      // Open mode: fully free switching, including back into a section you've already moved past — nothing truly locks until final submit
       if(sid===state.currentSectionId) return;
       const secName=state.sections.find(s=>s.section_id===sid)?.section_name||sid;
       if(confirm(`Switch to "${secName}"?\n\nThe overall timer continues running.`)){ state.currentSectionId=sid; state.currentQIdx=0; renderSectionTabs(); renderPalette(); renderCurrentQuestion(); updateSectionNextButton(); }
@@ -1343,10 +1379,10 @@ function renderPalette(){
   if(qs.length===0){ grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:24px 12px;color:#888;font-size:12px"><b>No questions in this section.</b></div>`; }
   else { grid.innerHTML=qs.map((q,idx)=>{ const cur=(idx===state.currentQIdx)?" current":""; let cls; if(q.type==="descriptive"){ cls=(state.answers[q.qid]||"").length>20?"desc-written":"desc-empty"; } else { cls=`s${state.statuses[q.qid]||0}`; } return `<button class="pbtn ${cls}${cur}" data-idx="${idx}">${idx+1}</button>`; }).join(""); grid.querySelectorAll(".pbtn").forEach(btn=>{ btn.addEventListener("click",()=>goToQuestion(parseInt(btn.dataset.idx,10))); }); }
   const idx=state.sections.findIndex(s=>s.section_id===state.currentSectionId); const hasNext=idx>=0&&idx<state.sections.length-1;
-  const submitBtn=$("#btn-submit-exam"); submitBtn.textContent=hasNext?"Submit Section →":"Submit Exam"; submitBtn.className=hasNext?"btn btn-section-next":"btn btn-danger"; submitBtn.onclick=hasNext?openSectionSubmitConfirm:openSubmitConfirm;
+  const submitBtn=$("#btn-submit-exam"); submitBtn.textContent=hasNext?(state.isLock?"Submit Section →":"Next Section →"):"Submit Exam"; submitBtn.className=hasNext?"btn btn-section-next":"btn btn-danger"; submitBtn.onclick=hasNext?openSectionSubmitConfirm:openSubmitConfirm;
   updateSectionNextButton();
 }
-function updateSectionNextButton(){ const qs=state.questionsBySection[state.currentSectionId]||[]; const idx=state.sections.findIndex(s=>s.section_id===state.currentSectionId); const hasNext=idx>=0&&idx<state.sections.length-1; const btn=$("#btn-section-next"); btn.style.display=(hasNext&&state.currentQIdx>=qs.length-1)?"inline-block":"none"; }
+function updateSectionNextButton(){ const qs=state.questionsBySection[state.currentSectionId]||[]; const idx=state.sections.findIndex(s=>s.section_id===state.currentSectionId); const hasNext=idx>=0&&idx<state.sections.length-1; const btn=$("#btn-section-next"); btn.style.display=(hasNext&&state.currentQIdx>=qs.length-1)?"inline-block":"none"; btn.textContent=state.isLock?"Submit Section & Next →":"Next Section →"; }
 
 /* ---- Actions ---- */
 function goToQuestion(idx){ const qs=state.questionsBySection[state.currentSectionId]||[]; if(idx<0||idx>=qs.length) return; state.currentQIdx=idx; renderCurrentQuestion(); }
@@ -1366,8 +1402,11 @@ function openSectionSubmitConfirm(){
   const sid=state.currentSectionId; const sIdx=state.sections.findIndex(s=>s.section_id===sid); const sec=state.sections[sIdx]; const next=state.sections[sIdx+1]; const qs=state.questionsBySection[sid]||[];
   let ans=0,mark=0,notAns=0,notVis=0;
   qs.forEach(q=>{ if(q.type==="descriptive"){ if((state.answers[q.qid]||"").length>20) ans++; else notAns++; return; } const st=state.statuses[q.qid]||0; if(st===0) notVis++; else if(st===1) notAns++; else if(st===2) ans++; else if(st===3) mark++; else if(st===4) ans++; });
-  $("#ssub-head").textContent=`Submit "${sec.section_name}"?`;
-  $("#ssub-body").innerHTML=`<p style="margin:0 0 10px">You are about to <b>lock this section</b>. You cannot return to it.</p><table class="summary-table"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody><tr><td>Answered</td><td style="color:#1d8a4a;font-weight:700">${ans}</td></tr><tr><td>Marked for Review</td><td style="color:#6c3483">${mark}</td></tr><tr><td>Not Answered</td><td style="color:#a93226">${notAns}</td></tr><tr><td>Not Visited</td><td style="color:#666">${notVis}</td></tr></tbody></table>${next?`<p style="margin-top:12px">After confirming, you will proceed to <b>${escHTML(next.section_name)}</b>.</p>`:""}<p style="margin-top:8px;font-size:12px;color:#a00">⚠ This action is irreversible.</p>`;
+  $("#ssub-head").textContent=state.isLock?`Submit "${sec.section_name}"?`:`Move on from "${sec.section_name}"?`;
+  const lockWarning=state.isLock
+    ? `<p style="margin:0 0 10px">You are about to <b>lock this section</b>. You cannot return to it.</p>`
+    : `<p style="margin:0 0 10px">You'll move to the next section, but you can come back to <b>${escHTML(sec.section_name)}</b> anytime using the section tabs before you finally submit the exam.</p>`;
+  $("#ssub-body").innerHTML=`${lockWarning}<table class="summary-table"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody><tr><td>Answered</td><td style="color:#1d8a4a;font-weight:700">${ans}</td></tr><tr><td>Marked for Review</td><td style="color:#6c3483">${mark}</td></tr><tr><td>Not Answered</td><td style="color:#a93226">${notAns}</td></tr><tr><td>Not Visited</td><td style="color:#666">${notVis}</td></tr></tbody></table>${next?`<p style="margin-top:12px">After confirming, you will proceed to <b>${escHTML(next.section_name)}</b>.</p>`:""}${state.isLock?`<p style="margin-top:8px;font-size:12px;color:#a00">⚠ This action is irreversible.</p>`:""}`;
   showModal("modal-section-submit");
 }
 function openSubmitConfirm(){
@@ -1423,7 +1462,7 @@ function stopOrientationWatch(){
   const hint=document.getElementById("rotate-hint"); if(hint) hint.remove();
 }
 
-async function finalizeExam(){ if(state.examFinished) return; state.examFinished=true; state.finishedAt=Date.now(); state.sections.forEach(s=>{ state.sectionLocked[s.section_id]=true; }); stopTimer(); exitFullscreenLandscape(); saveState(); renderResultScreen(); setSaveStatus("⏳ Saving your score…","saving"); const isFirst=await checkFirstAttempt(state.selectedTestId); if(isFirst){ updateLeaderboard(); } await saveAttemptToFirestore(isFirst); }
+async function finalizeExam(){ if(state.examFinished) return; state.examFinished=true; state.finishedAt=Date.now(); state.sections.forEach(s=>{ state.sectionLocked[s.section_id]=true; }); stopTimer(); exitFullscreenLandscape(); disarmExamBackGuard(); saveState(); renderResultScreen(); setSaveStatus("⏳ Saving your score…","saving"); const isFirst=await checkFirstAttempt(state.selectedTestId); if(isFirst){ updateLeaderboard(); } await saveAttemptToFirestore(isFirst); }
 
 /* ---- Scoring ---- */
 function computeResults(){
@@ -1513,7 +1552,9 @@ function bindGlobalEvents(){
   $("#ssub-cancel").addEventListener("click",()=>hideModal("modal-section-submit"));
   $("#ssub-confirm").addEventListener("click",()=>{
     hideModal("modal-section-submit");
-    const sid=state.currentSectionId; state.sectionLocked[sid]=true; state.timeLeft[sid]=0; saveState();
+    const sid=state.currentSectionId;
+    if(state.isLock){ state.sectionLocked[sid]=true; state.timeLeft[sid]=0; }
+    saveState();
     const idx=state.sections.findIndex(s=>s.section_id===sid); const next=state.sections[idx+1];
     if(next){ state.currentSectionId=next.section_id; state.currentQIdx=0; renderSectionTabs(); renderPalette(); renderCurrentQuestion(); }
     else finalizeExam();

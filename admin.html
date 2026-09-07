@@ -734,7 +734,7 @@ const firebaseConfig = {
 /* Anyone signed in elsewhere on this domain (e.g. a student logged into
    app.html) will otherwise share this same browser session and could
    open this file. Setting this locks the dashboard to your account only. */
-const ADMIN_EMAIL = "subhamdahiya18@gmail.com";
+const ADMIN_EMAIL = "PASTE_YOUR_ADMIN_EMAIL_HERE";
 
 let db;
 let _allTests = [], _allConfig = [], _allQuestions = [], _allExams = [];
@@ -1204,6 +1204,7 @@ function parseMarkdownV2(text) {
   finalizeQuestion();
 
   sections.forEach(s => { s.num_questions = String(sectionCounts[s.section_id]||0); });
+  if (test) test.total_questions = String(questions.length);
   if (!test) errors.push("No TEST_ID header line found — must be the first non-empty line.");
   if (sections.length===0) errors.push("No SECTION lines found.");
   if (questions.length===0) errors.push("No questions parsed.");
@@ -1259,6 +1260,7 @@ function parseCSVForImport(text){
     });
   });
   const sections = Object.values(sectionsMap).map(s=>({...s, num_questions:String(s.num_questions)}));
+  test.total_questions = String(questions.length);
   if (sections.length===0) errors.push("No sections found (check section_id column).");
   return {test, sections, questions, errors};
 }
