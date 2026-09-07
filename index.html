@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Target1st — Online Mock Tests for Haryana Govt Exams</title>
-<meta name="description" content="Target1st offers full-length CBT mock tests for HARTRON, HSSC Group D and other Haryana government exams. Try a free demo, then unlock 10 mocks per exam for ₹99."/>
+<meta name="description" content="Target1st offers full-length CBT mock tests for HARTRON, HSSC Group D and other Haryana government exams. Try a free demo, then unlock the full mock-test bundle for your exam."/>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet"/>
@@ -92,14 +92,14 @@
   <div class="feature-grid">
     <div class="feature"><div class="ico">🖥️</div><h3>Real exam-style CBT</h3><p>Sectional timers, negative marking, and a palette-based interface just like the real exam.</p></div>
     <div class="feature"><div class="ico">🎯</div><h3>Haryana-focused</h3><p>Content built specifically for HARTRON, HSSC Group D and other state-level exams — not generic filler.</p></div>
-    <div class="feature"><div class="ico">💸</div><h3>Transparent pricing</h3><p>₹99 unlocks 10 full mocks for one exam. No hidden fees, no recurring subscription.</p></div>
+    <div class="feature"><div class="ico">💸</div><h3>Transparent pricing</h3><p>One flat price unlocks every mock test for that exam. No hidden fees, no recurring subscription.</p></div>
     <div class="feature"><div class="ico">📈</div><h3>Track your progress</h3><p>Personal dashboard shows your accuracy trend and weak sections across attempts.</p></div>
   </div>
 </section>
 
 <section id="pricing" style="background:var(--bg)">
   <h2 class="section-title">Exam Bundles</h2>
-  <p class="section-sub">Each bundle unlocks 10 full mock tests for that exam — pay once, attempt anytime.</p>
+  <p class="section-sub">Each bundle unlocks every mock test for that exam — pay once, attempt anytime.</p>
   <div class="pricing-note">🆓 Every exam includes at least one free demo test — sign up and try before you buy.</div>
   <div id="bundle-grid"><div class="empty-note">Loading exam bundles…</div></div>
 </section>
@@ -109,7 +109,7 @@
   <div class="feature-grid">
     <div class="feature"><div class="ico">1️⃣</div><h3>Sign up free</h3><p>Create an account in seconds — no payment required to start.</p></div>
     <div class="feature"><div class="ico">2️⃣</div><h3>Try the demo</h3><p>Take a free full-length demo test to see the quality before paying anything.</p></div>
-    <div class="feature"><div class="ico">3️⃣</div><h3>Unlock a bundle</h3><p>Pick your exam, pay ₹99, and instantly get all 10 mocks for that exam.</p></div>
+    <div class="feature"><div class="ico">3️⃣</div><h3>Unlock a bundle</h3><p>Pick your exam, pay once, and instantly get every mock test for that exam.</p></div>
   </div>
 </section>
 
@@ -161,9 +161,9 @@ function esc(s){ return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&
       <div class="bundle-card">
         <div class="bundle-cat">${esc(e.category||"Govt Exam")}</div>
         <div class="bundle-name">${esc(e.exam_name)}</div>
-        <div class="bundle-price">₹${esc(String(e.bundle_price_inr??99))} <small>/ 10 mocks</small></div>
+        <div class="bundle-price">₹${esc(String(e.bundle_price_inr??99))} <small>/ full bundle</small></div>
         <ul class="bundle-list">
-          <li>10 full-length mock tests</li>
+          <li>All mock tests for this exam</li>
           <li>Detailed solutions &amp; explanations</li>
           <li>Leaderboard &amp; performance dashboard</li>
         </ul>

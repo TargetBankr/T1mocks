@@ -733,9 +733,9 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
     <div class="modal-body paywall-body">
       <div id="paywall-test-name" style="font-size:15px;font-weight:700;color:var(--c-blue-dark);margin-bottom:12px"></div>
       <div class="paywall-price">₹<span id="paywall-price-val">99</span></div>
-      <div class="paywall-note">Bundle · Unlocks all 10 mocks for this exam</div>
+      <div class="paywall-note" id="paywall-note">Bundle · Unlocks this exam's mock tests</div>
       <ul class="paywall-features">
-        <li>✅ All 10 mock tests for this exam</li>
+        <li id="paywall-count-line">✅ All mock tests for this exam</li>
         <li>✅ Detailed solutions &amp; explanations</li>
         <li>✅ Score tracking, leaderboard &amp; dashboard</li>
         <li>✅ Lifetime access to this bundle</li>
@@ -972,6 +972,7 @@ async function loadUserAccess(){
   } catch(e){ console.warn("Could not load user access:",e.message); }
 }
 function examFor(test){ const examId=(test.exam_id||"").trim(); if(!examId) return null; return (state.allExams||[]).find(e=>(e.exam_id||"").trim()===examId)||null; }
+function examTestCount(examId){ if(!examId) return 1; const n=(state.allTests||[]).filter(t=>(t.exam_id||"").trim()===examId).length; return n||1; }
 function hasAccessToTest(test){
   if((test.is_demo||"no").toLowerCase()==="yes") return true;
   const examId=(test.exam_id||"").trim();
@@ -981,9 +982,14 @@ function hasAccessToTest(test){
 function bundlePriceFor(test){ const ex=examFor(test); return Math.round(parseFloat(ex&&ex.bundle_price_inr!=null?ex.bundle_price_inr:99))||99; }
 function showPaywall(test){
   const exam=examFor(test);
+  const examId=(test.exam_id||"").trim();
+  const count=examTestCount(examId);
+  const label = count===1 ? "this mock test" : `all ${count} mock tests`;
   state._pendingTest=test; state._pendingExam=exam;
   $("#paywall-test-name").textContent=(exam&&exam.exam_name)||test.test_name||"This Test";
   $("#paywall-price-val").textContent=bundlePriceFor(test);
+  $("#paywall-note").textContent = count===1 ? "Unlocks this mock test" : `Bundle · Unlocks ${label} for this exam`;
+  $("#paywall-count-line").textContent = `✅ ${count===1?"This mock test":label+" for this exam"}`;
   $("#btn-pay-now").onclick=openRazorpay;
   showModal("modal-paywall");
 }
@@ -1017,7 +1023,8 @@ async function grantAccessAfterPayment(paymentId){
       });
       state.userAccess.purchasedExams=[...(state.userAccess.purchasedExams||[]),examId];
     }
-    setSaveStatus("✅ Bundle unlocked! You now have access to all 10 mocks.","ok");
+    const unlockedCount = examTestCount(examId);
+    setSaveStatus(`✅ Unlocked! You now have access to ${unlockedCount===1?"this mock test":"all "+unlockedCount+" mock tests"}.`,"ok");
     setTimeout(()=>{ renderTestSelectionScreen(); if(state._pendingTest) loadTest(state._pendingTest.test_id); },1200);
   } catch(e){ setSaveStatus(`❌ Payment recorded (ID: ${paymentId}) but access setup failed. Contact support with this ID.`,"err"); }
 }
@@ -1120,9 +1127,10 @@ function renderTestSelectionScreen(){
       const isDemo=(t.is_demo||"no").toLowerCase()==="yes";
       const hasAccess=hasAccessToTest(t);
       const price=bundlePriceFor(t);
+      const tCount=examTestCount((t.exam_id||"").trim());
       const paidBadge=isDemo?`<span style="font-size:10px;background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-weight:700">🆓 Free</span>`:hasAccess?`<span class="tc-paid-unlocked">✅ Unlocked</span>`:`<span class="tc-paid-lock">🔒 ₹${price} Bundle</span>`;
       const btnStyle=(!isDemo&&!hasAccess)?`background:#f39c12`:``;
-      const btnLabel=(!isDemo&&!hasAccess)?`🔒 Unlock 10 Mocks — ₹${price}`:`Start Test →`;
+      const btnLabel=(!isDemo&&!hasAccess)?`🔒 Unlock ${tCount===1?"":tCount+" Mocks — "}₹${price}`:`Start Test →`;
       return `<div class="test-card" data-tid="${escHTML(t.test_id)}">
         <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
           <span class="tc-type ${typeCls}">${escHTML(type)}</span>
