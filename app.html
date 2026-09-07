@@ -10,6 +10,8 @@
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
+  *{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
+
 :root{
   --c-grey:#F5F5F5;--c-grey-border:#cfcfcf;
   --c-red:#E74C3C;--c-green:#2ECC71;--c-purple:#9B59B6;
@@ -951,6 +953,14 @@ function friendlyAuthErr(e){
 }
 
 /* ===================== BUNDLE ACCESS ===================== */
+async function ensureUserDoc(){
+  if(!db||!state.user) return;
+  try{
+    await db.collection("users").doc(state.user.uid).set({
+      email: state.user.email||"", name: state.profile.name||state.user.displayName||""
+    }, {merge:true});
+  }catch(e){ console.warn("ensureUserDoc failed:",e.message); }
+}
 async function loadUserAccess(){
   state.userAccess={purchasedExams:[]};
   if(!db||!state.user) return;
@@ -1131,7 +1141,7 @@ function renderTestSelectionScreen(){
   $("#sel-filters").querySelectorAll(".filter-btn").forEach(btn=>{ btn.onclick=()=>{ currentFilter=btn.dataset.filter; $("#sel-filters").querySelectorAll(".filter-btn").forEach(b=>b.classList.remove("active")); btn.classList.add("active"); renderCards(currentFilter); }; });
   showScreen("screen-tests");
 }
-function goTests(){ if(state.examStarted&&!state.examFinished){ if(!confirm("Leave the exam? Your progress is saved locally.")) return; } state.examStarted=false; if(state.selectedCategory) renderTestSelectionScreen(); else renderCategoriesScreen(); }
+function goTests(){ if(state.examStarted&&!state.examFinished){ if(!confirm("Leave the exam? Your progress is saved locally.")) return; } exitFullscreenLandscape(); state.examStarted=false; if(state.selectedCategory) renderTestSelectionScreen(); else renderCategoriesScreen(); }
 
 /* ===================== LOAD A TEST ===================== */
 async function loadTest(testId){
@@ -1188,7 +1198,7 @@ function renderInstructionScreen(){
   $("#cand-name").value=state.profile.name; $("#cand-email").value=state.profile.email;
   $("#cand-agree").checked=false; $("#btn-start").disabled=true;
   $("#cand-agree").onchange=()=>{ $("#btn-start").disabled=!$("#cand-agree").checked; };
-  $("#btn-start").onclick=()=>{ state.candidate.name=state.profile.name; state.candidate.email=state.profile.email; initFreshExamState(); enterExam(); };
+  $("#btn-start").onclick=()=>{ state.candidate.name=state.profile.name; state.candidate.email=state.profile.email; initFreshExamState(); enterFullscreenLandscape(); enterExam(); };
   const saved=loadSavedState();
   if(saved&&saved.selectedTestId===state.selectedTestId&&saved.examStarted&&!saved.examFinished){ $("#btn-resume").style.display="inline-block"; $("#btn-resume").onclick=()=>{ Object.assign(state,saved); enterExam(); }; }
   else { $("#btn-resume").style.display="none"; }
@@ -1359,7 +1369,53 @@ function openSubmitConfirm(){
   const dw=document.getElementById("confirm-desc-warn"); if(dw) dw.innerHTML=unansweredDesc>0?`<p style="margin:12px 0 0;padding:8px 12px;background:#f5eef8;border:1px solid #d7bde2;border-radius:4px;color:#6c3483;font-size:12px">✍ <b>${unansweredDesc} descriptive question${unansweredDesc>1?"s":""}</b> ha${unansweredDesc>1?"ve":"s"} less than 20 characters and will be marked as not attempted.</p>`:"";
   showModal("modal-confirm-submit");
 }
-async function finalizeExam(){ if(state.examFinished) return; state.examFinished=true; state.finishedAt=Date.now(); state.sections.forEach(s=>{ state.sectionLocked[s.section_id]=true; }); stopTimer(); saveState(); renderResultScreen(); setSaveStatus("⏳ Saving your score…","saving"); const isFirst=await checkFirstAttempt(state.selectedTestId); if(isFirst){ updateLeaderboard(); } await saveAttemptToFirestore(isFirst); }
+/* ===================== FULLSCREEN + LANDSCAPE (best-effort) ===================== */
+/* Must run directly inside a user-tap handler — browsers block these APIs
+   otherwise. iOS Safari on iPhone supports neither Fullscreen nor
+   orientation-lock at all (Apple platform limitation) — falls through to
+   the rotate-hint below on those devices instead. */
+function enterFullscreenLandscape(){
+  try{
+    const el=document.documentElement;
+    const reqFS=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen;
+    const lockLandscape=()=>{ try{ if(screen.orientation&&screen.orientation.lock) screen.orientation.lock("landscape").catch(()=>{}); }catch(_){} };
+    if(reqFS){ Promise.resolve(reqFS.call(el)).then(lockLandscape).catch(()=>{}); }
+    else lockLandscape();
+  }catch(e){ console.warn("Fullscreen/orientation not supported:",e.message); }
+  startOrientationWatch();
+}
+function exitFullscreenLandscape(){
+  try{
+    const exitFS=document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen||document.msExitFullscreen;
+    if((document.fullscreenElement||document.webkitFullscreenElement)&&exitFS) exitFS.call(document);
+    if(screen.orientation&&screen.orientation.unlock) screen.orientation.unlock();
+  }catch(e){}
+  stopOrientationWatch();
+}
+let _orientMQ=null, _orientHandler=null;
+function startOrientationWatch(){
+  if(_orientMQ) return;
+  _orientMQ=window.matchMedia("(orientation: portrait)");
+  _orientHandler=()=>{
+    let hint=document.getElementById("rotate-hint");
+    if(!hint){
+      hint=document.createElement("div"); hint.id="rotate-hint";
+      hint.style.cssText="position:fixed;inset:0;background:#111;color:#fff;z-index:99999;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;font-size:17px;font-weight:600;line-height:1.6";
+      hint.innerHTML="📱 ➜ 🔄<br/>Please rotate your device to landscape for the best test-taking experience.";
+      document.body.appendChild(hint);
+    }
+    hint.style.display=_orientMQ.matches?"flex":"none";
+  };
+  _orientMQ.addEventListener("change",_orientHandler);
+  _orientHandler();
+}
+function stopOrientationWatch(){
+  if(_orientMQ&&_orientHandler) _orientMQ.removeEventListener("change",_orientHandler);
+  _orientMQ=null; _orientHandler=null;
+  const hint=document.getElementById("rotate-hint"); if(hint) hint.remove();
+}
+
+async function finalizeExam(){ if(state.examFinished) return; state.examFinished=true; state.finishedAt=Date.now(); state.sections.forEach(s=>{ state.sectionLocked[s.section_id]=true; }); stopTimer(); exitFullscreenLandscape(); saveState(); renderResultScreen(); setSaveStatus("⏳ Saving your score…","saving"); const isFirst=await checkFirstAttempt(state.selectedTestId); if(isFirst){ updateLeaderboard(); } await saveAttemptToFirestore(isFirst); }
 
 /* ---- Scoring ---- */
 function computeResults(){
@@ -1473,6 +1529,7 @@ async function boot(){
     $("#loading-msg").textContent="Loading available tests…";
     showScreen("screen-loading");
     // loadAllData NEVER throws — it falls back to demo on failure
+    await ensureUserDoc();
     await loadUserAccess();
     await loadAllData();
     renderCategoriesScreen();

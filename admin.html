@@ -9,6 +9,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
+  *{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
+
   :root {
     --blue:#1F4E79; --blue-d:#163A5C; --blue-l:#E8EEF6;
     --green:#2ECC71; --green-d:#1d8a4a;
@@ -727,6 +729,12 @@ const firebaseConfig = {
   messagingSenderId: "913932479459",
   appId:             "1:913932479459:web:85f68c15f021232c5b4ed6"
 };
+
+/* ---- ADMIN EMAIL — must match the account you created in Firebase Auth ---- */
+/* Anyone signed in elsewhere on this domain (e.g. a student logged into
+   app.html) will otherwise share this same browser session and could
+   open this file. Setting this locks the dashboard to your account only. */
+const ADMIN_EMAIL = "PASTE_YOUR_ADMIN_EMAIL_HERE";
 
 let db;
 let _allTests = [], _allConfig = [], _allQuestions = [], _allExams = [];
@@ -1648,6 +1656,17 @@ function copyFirebase() {
 if (initFirebaseAdmin()) {
   firebase.auth().onAuthStateChanged(user => {
     if (user) {
+      const configured = ADMIN_EMAIL && !ADMIN_EMAIL.startsWith("PASTE_");
+      if (configured && user.email && user.email.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+        firebase.auth().signOut();
+        document.getElementById("app").style.display = "none";
+        document.getElementById("login-overlay").style.display = "flex";
+        const errEl = document.getElementById("login-err");
+        errEl.textContent = "❌ This account is not authorized for admin access.";
+        errEl.style.display = "block";
+        return;
+      }
+      if (!configured) console.warn("ADMIN_EMAIL is not set in admin.html — anyone signed in on this domain can currently open this panel. Set ADMIN_EMAIL to lock it down.");
       document.getElementById("login-overlay").style.display = "none";
       document.getElementById("app").style.display = "flex";
       const badge = document.getElementById("admin-email-badge");
