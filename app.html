@@ -220,7 +220,7 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
 .q-desc-wc.over{color:var(--c-red);font-weight:700}
 
 /* PALETTE */
-.palette{width:var(--palette-w);background:#f4f6fa;border-left:1px solid var(--c-line);display:flex;flex-direction:column;flex-shrink:0;min-height:0}
+.palette{width:var(--palette-w);background:#f4f6fa;border-left:1px solid var(--c-line);display:flex;flex-direction:column;flex-shrink:0;min-height:0;overflow-y:auto}
 .palette-head{padding:10px 12px;background:#e1e8f1;font-size:12px;font-weight:700;color:var(--c-blue-dark);border-bottom:1px solid var(--c-line);display:flex;justify-content:space-between;align-items:center}
 .palette-legend{padding:10px 12px;border-bottom:1px solid var(--c-line);background:#fff;font-size:11px}
 .palette-legend .pl-row{display:flex;align-items:center;gap:8px;margin:3px 0}
@@ -250,6 +250,9 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
 .bottombar .left{display:flex;gap:8px}
 .bottombar .right{display:flex;gap:8px}
 .bottombar .btn{font-size:13px;padding:10px 16px}
+.submit-inline{display:none}
+.fs-toggle-btn{width:34px;height:34px;border:none;border-radius:4px;background:rgba(255,255,255,.18);color:#fff;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.fs-toggle-btn:hover{background:rgba(255,255,255,.3)}
 
 /* RESULT */
 #screen-result{overflow:auto;background:#fff}
@@ -362,6 +365,14 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
   .q-area{flex:1;flex-direction:column}.q-passage{width:100%;max-height:35vh;border-right:none;border-bottom:2px solid var(--c-line)}
   .topbar{flex-wrap:wrap;height:auto;padding:8px 12px;gap:8px}.tb-left,.tb-right{min-width:0}
   .tb-center{flex-basis:100%;text-align:left;font-size:12px}
+}
+/* Short viewport height — typical of a phone rotated to landscape. The side
+   palette (legend + question grid + its own Submit button) can end up taller
+   than the available space and get scrolled out of sight, so mirror the
+   Submit button into the always-visible bottom bar here. */
+@media(max-height:500px){
+  .submit-inline{display:inline-flex;align-items:center;justify-content:center}
+  .palette-legend{display:none}
 }
 </style>
 </head>
@@ -539,6 +550,7 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
     </div>
     <div class="tb-center" id="tb-exam-title">Mock Test</div>
     <div class="tb-right">
+      <button class="fs-toggle-btn" id="btn-fs-toggle" title="Toggle fullscreen" type="button">⛶</button>
       <div class="tb-timer" id="tb-timer"><span class="lbl">TIME LEFT</span><span id="tb-timer-val">00:00</span></div>
     </div>
   </div>
@@ -586,6 +598,7 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
       <button class="btn btn-ghost" id="btn-clear">Clear Response</button>
     </div>
     <div class="right">
+      <button class="btn submit-inline" id="btn-submit-exam-inline"></button>
       <button class="btn btn-warn" id="btn-mark-next">Mark for Review &amp; Next</button>
       <button class="btn btn-primary" id="btn-save-next">Save &amp; Next &raquo;</button>
       <button class="btn btn-section-next" id="btn-section-next" style="display:none">Submit Section &amp; Next →</button>
@@ -684,6 +697,16 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
     <div class="modal-foot">
       <button class="btn btn-ghost" id="ssub-cancel">Cancel</button>
       <button class="btn btn-section-next" id="ssub-confirm">Yes, Submit &amp; Proceed</button>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="modal-switch-section">
+  <div class="modal">
+    <div class="modal-head">Switch Section?</div>
+    <div class="modal-body" id="swsec-body"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="swsec-cancel">Cancel</button>
+      <button class="btn btn-primary" id="swsec-confirm">Yes, Switch</button>
     </div>
   </div>
 </div>
@@ -1286,7 +1309,9 @@ function renderSectionTabs(){
       // Open mode: fully free switching, including back into a section you've already moved past — nothing truly locks until final submit
       if(sid===state.currentSectionId) return;
       const secName=state.sections.find(s=>s.section_id===sid)?.section_name||sid;
-      if(confirm(`Switch to "${secName}"?\n\nThe overall timer continues running.`)){ state.currentSectionId=sid; state.currentQIdx=0; renderSectionTabs(); renderPalette(); renderCurrentQuestion(); updateSectionNextButton(); }
+      $("#swsec-body").innerHTML=`<p style="margin:0">Switch to <b>${escHTML(secName)}</b>?</p><p style="margin:8px 0 0;font-size:12px;color:var(--c-muted)">The overall timer continues running.</p>`;
+      $("#swsec-confirm").onclick=()=>{ hideModal("modal-switch-section"); state.currentSectionId=sid; state.currentQIdx=0; renderSectionTabs(); renderPalette(); renderCurrentQuestion(); updateSectionNextButton(); ensureFullscreenLandscape(); };
+      showModal("modal-switch-section");
     });
   });
 }
@@ -1379,7 +1404,9 @@ function renderPalette(){
   if(qs.length===0){ grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:24px 12px;color:#888;font-size:12px"><b>No questions in this section.</b></div>`; }
   else { grid.innerHTML=qs.map((q,idx)=>{ const cur=(idx===state.currentQIdx)?" current":""; let cls; if(q.type==="descriptive"){ cls=(state.answers[q.qid]||"").length>20?"desc-written":"desc-empty"; } else { cls=`s${state.statuses[q.qid]||0}`; } return `<button class="pbtn ${cls}${cur}" data-idx="${idx}">${idx+1}</button>`; }).join(""); grid.querySelectorAll(".pbtn").forEach(btn=>{ btn.addEventListener("click",()=>goToQuestion(parseInt(btn.dataset.idx,10))); }); }
   const idx=state.sections.findIndex(s=>s.section_id===state.currentSectionId); const hasNext=idx>=0&&idx<state.sections.length-1;
-  const submitBtn=$("#btn-submit-exam"); submitBtn.textContent=hasNext?(state.isLock?"Submit Section →":"Next Section →"):"Submit Exam"; submitBtn.className=hasNext?"btn btn-section-next":"btn btn-danger"; submitBtn.onclick=hasNext?openSectionSubmitConfirm:openSubmitConfirm;
+  const submitLabel=hasNext?(state.isLock?"Submit Section →":"Next Section →"):"Submit Exam"; const submitHandler=hasNext?openSectionSubmitConfirm:openSubmitConfirm;
+  const submitBtn=$("#btn-submit-exam"); submitBtn.textContent=submitLabel; submitBtn.className=hasNext?"btn btn-section-next":"btn btn-danger"; submitBtn.onclick=submitHandler;
+  const submitBtnInline=$("#btn-submit-exam-inline"); submitBtnInline.textContent=hasNext?(state.isLock?"Submit":"Next Sec."):"Submit"; submitBtnInline.classList.remove("btn-danger","btn-section-next"); submitBtnInline.classList.add(hasNext?"btn-section-next":"btn-danger"); submitBtnInline.onclick=submitHandler;
   updateSectionNextButton();
 }
 function updateSectionNextButton(){ const qs=state.questionsBySection[state.currentSectionId]||[]; const idx=state.sections.findIndex(s=>s.section_id===state.currentSectionId); const hasNext=idx>=0&&idx<state.sections.length-1; const btn=$("#btn-section-next"); btn.style.display=(hasNext&&state.currentQIdx>=qs.length-1)?"inline-block":"none"; btn.textContent=state.isLock?"Submit Section & Next →":"Next Section →"; }
@@ -1439,6 +1466,16 @@ function exitFullscreenLandscape(){
   }catch(e){}
   stopOrientationWatch();
 }
+/* Re-enters fullscreen only if it was somehow lost — safe to call after any
+   in-exam user tap (e.g. right after confirming a section switch). */
+function ensureFullscreenLandscape(){
+  if(!(document.fullscreenElement||document.webkitFullscreenElement)) enterFullscreenLandscape();
+}
+["fullscreenchange","webkitfullscreenchange"].forEach(evt=>document.addEventListener(evt,()=>{
+  const btn=document.getElementById("btn-fs-toggle"); if(!btn) return;
+  const isFS=!!(document.fullscreenElement||document.webkitFullscreenElement);
+  btn.textContent=isFS?"⛝":"⛶"; btn.title=isFS?"Exit fullscreen":"Enter fullscreen";
+}));
 let _orientMQ=null, _orientHandler=null;
 function startOrientationWatch(){
   if(_orientMQ) return;
@@ -1550,6 +1587,8 @@ function bindGlobalEvents(){
   $("#confirm-cancel").addEventListener("click",()=>hideModal("modal-confirm-submit"));
   $("#confirm-submit").addEventListener("click",()=>{ hideModal("modal-confirm-submit"); finalizeExam(); });
   $("#ssub-cancel").addEventListener("click",()=>hideModal("modal-section-submit"));
+  $("#swsec-cancel").addEventListener("click",()=>hideModal("modal-switch-section"));
+  $("#btn-fs-toggle").addEventListener("click",()=>{ const isFS=!!(document.fullscreenElement||document.webkitFullscreenElement); if(isFS) exitFullscreenLandscape(); else enterFullscreenLandscape(); });
   $("#ssub-confirm").addEventListener("click",()=>{
     hideModal("modal-section-submit");
     const sid=state.currentSectionId;
