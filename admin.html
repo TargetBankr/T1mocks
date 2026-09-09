@@ -1823,7 +1823,10 @@ if (initFirebaseAdmin()) {
       document.getElementById("login-overlay").style.display = "none";
       document.getElementById("app").style.display = "flex";
       const badge = document.getElementById("admin-email-badge");
-      if (badge) badge.textContent = user.email;
+      if (badge) {
+        badge.textContent = user.email + " · UID: " + user.uid;
+        badge.title = "Tap and hold to copy the UID and compare it against ADMIN_UID in your Firestore rules.";
+      }
       loadManageData();
     } else {
       document.getElementById("login-overlay").style.display = "flex";
@@ -1836,3 +1839,4 @@ if (initFirebaseAdmin()) {
 
 </body>
 </html>
+l>
