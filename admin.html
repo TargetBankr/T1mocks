@@ -1649,12 +1649,21 @@ async function loadUsersData() {
   btn.disabled = true; btn.textContent = "Loading…";
   try {
     if (!_adminDataLoaded) await loadManageData(); // for exam-name lookups
-    const [usersSnap, purchasesSnap, attemptsSnap, lbSnap] = await Promise.all([
-      db.collection("users").get(),
-      db.collection("purchases").get(),
-      db.collectionGroup("attempts").get(),
-      db.collectionGroup("entries").get()
-    ]);
+    const labeled = [
+      ["users",      () => db.collection("users").get()],
+      ["purchases",  () => db.collection("purchases").get()],
+      ["attempts",   () => db.collectionGroup("attempts").get()],
+      ["leaderboard",() => db.collectionGroup("entries").get()]
+    ];
+    const results = await Promise.allSettled(labeled.map(([,fn]) => fn()));
+    const failed = results
+      .map((r,i) => ({ name: labeled[i][0], r }))
+      .filter(x => x.r.status === "rejected");
+    if (failed.length) {
+      const msg = failed.map(f => `${f.name}: ${f.r.reason.message}`).join(" | ");
+      throw new Error(msg);
+    }
+    const [usersSnap, purchasesSnap, attemptsSnap, lbSnap] = results.map(r => r.value);
     _allUsers = usersSnap.docs.map(d => ({ ...d.data(), uid: d.id }));
     _allPurchases = purchasesSnap.docs.map(d => ({ purchase_doc_id: d.id, ...d.data() }));
     _allAttempts = attemptsSnap.docs.map(d => ({ ...d.data(), attempt_id: d.id, uid: d.ref.parent.parent.id }));
@@ -1839,4 +1848,3 @@ if (initFirebaseAdmin()) {
 
 </body>
 </html>
-l>
