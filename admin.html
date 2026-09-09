@@ -227,6 +227,7 @@
     <button class="tab"        id="t-question" onclick="showTab('tab-question')">❓ Add Question</button>
     <button class="tab"        id="t-bulk"    onclick="showTab('tab-bulk')">📥 Bulk Import</button>
     <button class="tab"        id="t-manage"  onclick="showTab('tab-manage')">🗂️ Manage Tests</button>
+    <button class="tab"        id="t-users"   onclick="showTab('tab-users')">👥 Users</button>
     <button class="tab"        id="t-view"    onclick="showTab('tab-view')">👀 View Data</button>
     <button class="tab"        id="t-firebase" onclick="showTab('tab-firebase')">🔥 Firebase Setup</button>
     <button class="tab"        id="t-codes"   onclick="showTab('tab-codes')">🆘 Error Codes</button>
@@ -258,12 +259,15 @@ service cloud.firestore {
     match /users/{uid} {
       allow read, write: if request.auth.uid == uid;
       allow read, write: if request.auth.uid == "ADMIN_UID";
-      match /attempts/{aid} { allow read, write: if request.auth.uid == uid; }
+      match /attempts/{aid} {
+        allow read, write: if request.auth.uid == uid;
+        allow read: if request.auth.uid == "ADMIN_UID";
+      }
     }
     match /leaderboard/{tid}/entries/{uid} { allow read: if request.auth != null; allow write: if request.auth.uid == uid; }
   }
 }</pre>
-        <p style="font-size:12px;color:var(--muted)">The <code class="inline">users</code> write rule now also allows your admin account — needed for the "Manually Grant Bundle Access" tool in the Exams tab, which writes to a student's user doc on your behalf.</p>
+        <p style="font-size:12px;color:var(--muted)">The <code class="inline">users</code> write rule now also allows your admin account — needed for the "Manually Grant Bundle Access" tool in the Exams tab, which writes to a student's user doc on your behalf. The <code class="inline">attempts</code> subcollection now also grants your admin account <b>read</b> access — needed for the 👥 Users tab, which reads every student's attempts via a collection-group query. If you already pasted the old rules into Firebase Console, re-paste this updated version or the Users tab will show a permission error.</p>
       </div>
       <div class="step">
         <h3>4️⃣ Build content — one test at a time, or in bulk</h3>
@@ -570,6 +574,32 @@ EXPLAIN: Keyboard is used to input data."></textarea>
   </div>
 
   <!-- ===== View Data ===== -->
+  <div class="panel" id="tab-users">
+    <div class="card">
+      <h2>👥 Users & Activity</h2>
+      <p style="color:var(--muted);font-size:13px">Registered students, purchases, test attempts, and leaderboard standings — pulled live from Firestore. Needs the updated security rules (admin read on <code class="inline">attempts</code>) — see the 🔥 Firebase Setup tab and re-paste your rules if you haven't already.</p>
+      <div style="margin:12px 0"><button class="btn" id="btn-load-users" onclick="loadUsersData()">🔄 Load Users & Activity</button></div>
+      <div id="users-overview-stats"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">🙋 Per-User Summary</h3>
+      <p style="color:var(--muted);font-size:12px">Leaderboard rank isn't stored anywhere — <code class="inline">app.html</code> just sorts by score client-side — so this table recomputes each student's rank per test the same way, from their score relative to everyone else who attempted that test.</p>
+      <div id="users-table-output"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">💳 Purchases (raw)</h3>
+      <div id="purchases-table-output"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">📝 Test Attempts (raw)</h3>
+      <div id="attempts-table-output"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">🏆 Leaderboard Entries (raw)</h3>
+      <div id="leaderboard-table-output"></div>
+    </div>
+  </div>
+
   <div class="panel" id="tab-view">
     <div class="card">
       <h2>👀 View Firestore Data</h2>
@@ -738,6 +768,8 @@ const ADMIN_EMAIL = "subhamdahiya18@gmail.com";
 
 let db;
 let _allTests = [], _allConfig = [], _allQuestions = [], _allExams = [];
+let _allUsers = [], _allPurchases = [], _allAttempts = [], _allLeaderboard = [];
+let _usersDataLoaded = false;
 let _previewTestId = null, _previewSecId = null, _previewQno = null;
 let _editingQ = false;
 
@@ -805,7 +837,7 @@ function showTab(id) {
   document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
   document.getElementById(id).classList.add("active");
-  const map = {"tab-guide":"t-guide","tab-exams":"t-exams","tab-test":"t-test","tab-section":"t-section","tab-question":"t-question","tab-bulk":"t-bulk","tab-manage":"t-manage","tab-view":"t-view","tab-firebase":"t-firebase","tab-codes":"t-codes"};
+  const map = {"tab-guide":"t-guide","tab-exams":"t-exams","tab-test":"t-test","tab-section":"t-section","tab-question":"t-question","tab-bulk":"t-bulk","tab-manage":"t-manage","tab-users":"t-users","tab-view":"t-view","tab-firebase":"t-firebase","tab-codes":"t-codes"};
   document.getElementById(map[id])?.classList.add("active");
   if (id === "tab-manage") loadManageData();
   if (id === "tab-exams") loadManageData();
@@ -1600,6 +1632,125 @@ async function deleteCurrentQuestion() {
     _previewQno = qs[0]?.qno || null;
     renderPreviewPalette(); renderPreviewQuestion();
   }
+}
+
+/* ───── Users & Activity ─────────────────────── */
+// Field names below are hardcoded to match exactly what app.html writes
+// (users: email/name/purchased_exams · attempts: score/accuracy_pct/timestamp/etc
+// · leaderboard entries: score, ranked client-side since no rank field is stored).
+function toJsDate(v) {
+  if (!v) return null;
+  if (typeof v.toDate === "function") return v.toDate();
+  const d = new Date(v);
+  return isNaN(d) ? null : d;
+}
+async function loadUsersData() {
+  const btn = document.getElementById("btn-load-users");
+  btn.disabled = true; btn.textContent = "Loading…";
+  try {
+    if (!_adminDataLoaded) await loadManageData(); // for exam-name lookups
+    const [usersSnap, purchasesSnap, attemptsSnap, lbSnap] = await Promise.all([
+      db.collection("users").get(),
+      db.collection("purchases").get(),
+      db.collectionGroup("attempts").get(),
+      db.collectionGroup("entries").get()
+    ]);
+    _allUsers = usersSnap.docs.map(d => ({ ...d.data(), uid: d.id }));
+    _allPurchases = purchasesSnap.docs.map(d => ({ purchase_doc_id: d.id, ...d.data() }));
+    _allAttempts = attemptsSnap.docs.map(d => ({ ...d.data(), attempt_id: d.id, uid: d.ref.parent.parent.id }));
+    _allLeaderboard = lbSnap.docs.map(d => ({ ...d.data(), test_id: d.ref.parent.parent.id, uid: d.id }));
+    _usersDataLoaded = true;
+    renderUsersOverview();
+    toast(`✅ Loaded ${_allUsers.length} users, ${_allAttempts.length} attempts`);
+  } catch(e) {
+    toast("❌ Load failed: " + e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = "🔄 Load Users & Activity";
+  }
+}
+function renderUsersOverview() {
+  const totalRevenue = _allPurchases.reduce((s,p) => s + (Number(p.amount_inr) || 0), 0);
+  const stats = [
+    ["Registered Users", _allUsers.length, "var(--blue-d)"],
+    ["Bundle Purchases", _allPurchases.length, "var(--green-d)"],
+    ["Total Revenue", "₹" + totalRevenue.toLocaleString("en-IN"), "var(--orange)"],
+    ["Test Attempts", _allAttempts.length, "var(--blue)"],
+    ["Leaderboard Entries", _allLeaderboard.length, "var(--purple)"]
+  ];
+  document.getElementById("users-overview-stats").innerHTML =
+    `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px">` +
+    stats.map(([label,val,color]) => `
+      <div style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:${color}">${val}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${label}</div>
+      </div>`).join("") + `</div>`;
+
+  const attemptsByUid = {};
+  _allAttempts.forEach(a => { (attemptsByUid[a.uid] ||= []).push(a); });
+  const purchasesByUid = {};
+  _allPurchases.forEach(p => { if (p.uid) (purchasesByUid[p.uid] ||= []).push(p); });
+
+  // app.html doesn't store a rank field — it sorts entries by score desc and
+  // shows position visually. Reproduce that here: rank within each test_id group.
+  const rankByUidTest = {}; // uid -> { test_id: rank }
+  const lbByTest = {};
+  _allLeaderboard.forEach(l => { (lbByTest[l.test_id] ||= []).push(l); });
+  Object.values(lbByTest).forEach(group => {
+    group.sort((a,b) => (Number(b.score)||0) - (Number(a.score)||0));
+    group.forEach((entry, i) => {
+      (rankByUidTest[entry.uid] ||= {})[entry.test_id] = i + 1;
+    });
+  });
+
+  const rows = _allUsers.map(u => {
+    const myAttempts = attemptsByUid[u.uid] || [];
+    const myPurchases = purchasesByUid[u.uid] || [];
+    const spent = myPurchases.reduce((s,p) => s + (Number(p.amount_inr) || 0), 0);
+    const distinctTests = new Set(myAttempts.map(a => a.test_id).filter(Boolean)).size;
+
+    const scores = myAttempts.map(a => Number(a.score)).filter(v => !isNaN(v));
+    const avgScore = scores.length ? (scores.reduce((s,v) => s+v, 0) / scores.length).toFixed(1) : "—";
+    const accs = myAttempts.map(a => Number(a.accuracy_pct)).filter(v => !isNaN(v));
+    const avgAcc = accs.length ? (accs.reduce((s,v) => s+v, 0) / accs.length).toFixed(1) + "%" : "—";
+
+    const dates = myAttempts.map(a => toJsDate(a.timestamp)).filter(Boolean);
+    const lastActivity = dates.length ? new Date(Math.max(...dates)).toLocaleString("en-IN") : "—";
+
+    const myRanks = Object.values(rankByUidTest[u.uid] || {});
+    const bestRank = myRanks.length ? "#" + Math.min(...myRanks) : "—";
+
+    return {
+      Name: u.name || "—",
+      Email: u.email || "—",
+      UID: u.uid,
+      "Bundles Owned": (u.purchased_exams || []).map(eid => {
+        const ex = _allExams.find(x => x.exam_id === eid);
+        return ex ? ex.exam_name : eid;
+      }).join(", ") || "—",
+      "Tests Attempted": distinctTests,
+      "Total Attempts": myAttempts.length,
+      "Avg Score": avgScore,
+      "Avg Accuracy": avgAcc,
+      "Best Leaderboard Rank": bestRank,
+      "Amount Spent (₹)": spent,
+      "Last Activity": lastActivity
+    };
+  });
+
+  document.getElementById("users-table-output").innerHTML = renderObjTable(rows);
+  document.getElementById("purchases-table-output").innerHTML = renderObjTable(_allPurchases);
+  document.getElementById("attempts-table-output").innerHTML = renderObjTable(_allAttempts.map(a => ({
+    test_name: a.test_name, candidate_name: a.candidate_name, candidate_email: a.candidate_email,
+    score: a.score, correct: a.correct, wrong: a.wrong, attempted: a.attempted, accuracy_pct: a.accuracy_pct,
+    time_taken_sec: a.time_taken_sec, is_first_attempt: a.is_first_attempt,
+    when: toJsDate(a.timestamp) ? toJsDate(a.timestamp).toLocaleString("en-IN") : "—",
+    uid: a.uid, test_id: a.test_id
+  })));
+  document.getElementById("leaderboard-table-output").innerHTML = renderObjTable(_allLeaderboard.map(l => ({
+    test_id: l.test_id, rank: (rankByUidTest[l.uid] || {})[l.test_id] || "—",
+    name: l.name, email: l.email, score: l.score, correct: l.correct, wrong: l.wrong, accuracy_pct: l.accuracy_pct,
+    when: toJsDate(l.timestamp) ? toJsDate(l.timestamp).toLocaleString("en-IN") : "—", uid: l.uid
+  })));
 }
 
 /* ───── View Data ────────────────────────────── */
