@@ -35,7 +35,11 @@ a{color:var(--c-blue)}
 @keyframes spin{to{transform:rotate(360deg)}}
 
 /* AUTH */
-#screen-auth{background:linear-gradient(135deg,#1F4E79 0%,#163A5C 60%,#0d2640 100%);align-items:center;justify-content:center;overflow:auto}
+#modal-auth .modal{max-width:420px}
+#modal-auth .auth-card{width:auto;padding:6px 4px 0;box-shadow:none}
+#modal-auth .modal-head{display:flex;justify-content:space-between;align-items:center}
+.modal-close-x{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;padding:0 4px;opacity:.85}
+.modal-close-x:hover{opacity:1}
 .auth-card{background:#fff;border-radius:12px;padding:36px 32px;width:380px;max-width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.35)}
 .auth-card h1{margin:0;text-align:center;font-size:24px;color:var(--c-blue);font-weight:800}
 .auth-card .sub{text-align:center;color:var(--c-muted);font-size:12px;margin:4px 0 22px}
@@ -388,46 +392,51 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
 </div>
 
 <!-- AUTH -->
-<div id="screen-auth" class="screen">
-  <div class="auth-card">
-    <a href="https://prep.target1st.in/" style="display:block;font-size:12px;color:var(--c-muted);text-decoration:none;margin-bottom:10px">← Back to prep.target1st.in</a>
-    <h1>Target1st</h1>
-    <p class="sub">Mock Test Portal · Student Login</p>
-    <div class="auth-tabs">
-      <button class="auth-tab active" data-mode="signin" onclick="switchAuthTab('signin')">Sign In</button>
-      <button class="auth-tab" data-mode="signup" onclick="switchAuthTab('signup')">Sign Up</button>
+<div class="modal-bg" id="modal-auth">
+  <div class="modal">
+    <div class="modal-head">
+      <span>Sign in to continue</span>
+      <button class="modal-close-x" onclick="closeAuthModal()" aria-label="Close">✕</button>
     </div>
-    <div id="auth-msg" class="auth-msg"></div>
-    <div id="form-signup" class="hidden">
-      <div class="auth-fld"><label>Full Name</label><input type="text" id="su-name" placeholder="Your full name" maxlength="80"/></div>
-      <div class="auth-fld"><label>Phone Number</label><input type="tel" id="su-phone" placeholder="10-digit phone" maxlength="10" inputmode="numeric"/></div>
-      <div class="auth-fld"><label>Email Address</label><input type="email" id="su-email" placeholder="you@example.com"/></div>
-      <div class="auth-fld"><label>Password</label><input type="password" id="su-pass" placeholder="Minimum 6 characters"/><div class="hint">Use at least 6 characters.</div></div>
-      <label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--c-muted);margin:10px 0">
-        <input type="checkbox" id="su-agree" style="margin-top:2px"/>
-        <span>I agree to the <a href="https://prep.target1st.in/terms.html" target="_blank">Terms</a>, <a href="https://prep.target1st.in/privacy.html" target="_blank">Privacy Policy</a> and <a href="https://prep.target1st.in/refund.html" target="_blank">Refund Policy</a></span>
-      </label>
-      <button class="auth-btn" onclick="doSignup()">Create Account</button>
-      <div class="auth-link">Already have an account? <a onclick="switchAuthTab('signin')">Sign in</a></div>
-    </div>
-    <div id="form-signin">
-      <div class="auth-fld"><label>Email Address</label><input type="email" id="si-email" placeholder="you@example.com"/></div>
-      <div class="auth-fld"><label>Password</label><input type="password" id="si-pass" placeholder="Your password" onkeydown="if(event.key==='Enter')doSignin()"/></div>
-      <button class="auth-btn" onclick="doSignin()">Sign In</button>
-      <div class="auth-link"><a onclick="switchAuthTab('forgot')">Forgot password?</a> &nbsp;·&nbsp; New here? <a onclick="switchAuthTab('signup')">Create an account</a></div>
-    </div>
-    <div id="form-forgot" class="hidden">
-      <p style="font-size:13px;color:var(--c-muted);margin:0 0 14px">Enter your email to receive a reset link.</p>
-      <div class="auth-fld"><label>Email Address</label><input type="email" id="fp-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doForgot()"/></div>
-      <button class="auth-btn" onclick="doForgot()">Send Reset Link</button>
-      <div class="auth-link"><a onclick="switchAuthTab('signin')">← Back to Sign In</a></div>
-    </div>
-    <div class="auth-foot">© Target1st · Online CBT Practice Portal<br/>
-      <a href="https://prep.target1st.in/about.html" style="color:inherit">About</a> ·
-      <a href="https://prep.target1st.in/terms.html" style="color:inherit">Terms</a> ·
-      <a href="https://prep.target1st.in/privacy.html" style="color:inherit">Privacy</a> ·
-      <a href="https://prep.target1st.in/refund.html" style="color:inherit">Refund</a> ·
-      <a href="https://prep.target1st.in/contact.html" style="color:inherit">Contact</a>
+    <div class="modal-body">
+      <div class="auth-card">
+        <div class="auth-tabs">
+          <button class="auth-tab active" data-mode="signin" onclick="switchAuthTab('signin')">Sign In</button>
+          <button class="auth-tab" data-mode="signup" onclick="switchAuthTab('signup')">Sign Up</button>
+        </div>
+        <div id="auth-msg" class="auth-msg"></div>
+        <div id="form-signup" class="hidden">
+          <div class="auth-fld"><label>Full Name</label><input type="text" id="su-name" placeholder="Your full name" maxlength="80"/></div>
+          <div class="auth-fld"><label>Phone Number</label><input type="tel" id="su-phone" placeholder="10-digit phone" maxlength="10" inputmode="numeric"/></div>
+          <div class="auth-fld"><label>Email Address</label><input type="email" id="su-email" placeholder="you@example.com"/></div>
+          <div class="auth-fld"><label>Password</label><input type="password" id="su-pass" placeholder="Minimum 6 characters"/><div class="hint">Use at least 6 characters.</div></div>
+          <label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--c-muted);margin:10px 0">
+            <input type="checkbox" id="su-agree" style="margin-top:2px"/>
+            <span>I agree to the <a href="https://prep.target1st.in/terms.html" target="_blank">Terms</a>, <a href="https://prep.target1st.in/privacy.html" target="_blank">Privacy Policy</a> and <a href="https://prep.target1st.in/refund.html" target="_blank">Refund Policy</a></span>
+          </label>
+          <button class="auth-btn" onclick="doSignup()">Create Account</button>
+          <div class="auth-link">Already have an account? <a onclick="switchAuthTab('signin')">Sign in</a></div>
+        </div>
+        <div id="form-signin">
+          <div class="auth-fld"><label>Email Address</label><input type="email" id="si-email" placeholder="you@example.com"/></div>
+          <div class="auth-fld"><label>Password</label><input type="password" id="si-pass" placeholder="Your password" onkeydown="if(event.key==='Enter')doSignin()"/></div>
+          <button class="auth-btn" onclick="doSignin()">Sign In</button>
+          <div class="auth-link"><a onclick="switchAuthTab('forgot')">Forgot password?</a> &nbsp;·&nbsp; New here? <a onclick="switchAuthTab('signup')">Create an account</a></div>
+        </div>
+        <div id="form-forgot" class="hidden">
+          <p style="font-size:13px;color:var(--c-muted);margin:0 0 14px">Enter your email to receive a reset link.</p>
+          <div class="auth-fld"><label>Email Address</label><input type="email" id="fp-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doForgot()"/></div>
+          <button class="auth-btn" onclick="doForgot()">Send Reset Link</button>
+          <div class="auth-link"><a onclick="switchAuthTab('signin')">← Back to Sign In</a></div>
+        </div>
+        <div class="auth-foot">© Target1st · Online CBT Practice Portal<br/>
+          <a href="https://prep.target1st.in/about.html" style="color:inherit">About</a> ·
+          <a href="https://prep.target1st.in/terms.html" style="color:inherit">Terms</a> ·
+          <a href="https://prep.target1st.in/privacy.html" style="color:inherit">Privacy</a> ·
+          <a href="https://prep.target1st.in/refund.html" style="color:inherit">Refund</a> ·
+          <a href="https://prep.target1st.in/contact.html" style="color:inherit">Contact</a>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -438,8 +447,8 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
     <div class="brand">🏦 Target1st</div>
     <div class="right">
       <span class="who" id="rib-who1">—</span>
-      <button class="ribbon-btn" onclick="openDashboard()">📊 Dashboard</button>
-      <button class="ribbon-btn ghost" onclick="doLogout()">Sign Out</button>
+      <button class="ribbon-btn" onclick="requireAuth(openDashboard)">📊 Dashboard</button>
+      <button class="ribbon-btn ghost" id="rib-auth1">Sign In</button>
     </div>
   </div>
   <div class="cat-wrap">
@@ -460,7 +469,7 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
     <div class="brand">🏦 Target1st</div>
     <div class="right">
       <span class="who" id="rib-who2">—</span>
-      <button class="ribbon-btn ghost" onclick="doLogout()">Sign Out</button>
+      <button class="ribbon-btn ghost" id="rib-auth2">Sign In</button>
     </div>
   </div>
   <div class="sel-wrap">
@@ -968,7 +977,30 @@ async function doForgot(){
 async function doLogout(){
   if(state.examStarted&&!state.examFinished){ if(!confirm("An exam is in progress. Sign out anyway? Your progress is saved locally.")) return; }
   try { await firebase.auth().signOut(); } catch(e){}
-  showScreen("screen-auth"); switchAuthTab("signin");
+  exitFullscreenLandscape(); disarmExamBackGuard(); state.examStarted=false;
+  state.user=null; state.profile={name:"",email:"",phone:""}; state.userAccess={purchasedExams:[]};
+  updateAuthUI();
+  if(state.selectedCategory) renderTestSelectionScreen(); else renderCategoriesScreen();
+}
+/* Gate any action behind login: shows the popup if signed out, otherwise runs immediately. */
+function requireAuth(afterFn){
+  if(state.user){ afterFn(); return; }
+  state._pendingAfterLogin = afterFn;
+  switchAuthTab("signin"); hideAuthMsg();
+  showModal("modal-auth");
+}
+function closeAuthModal(){ state._pendingAfterLogin=null; hideModal("modal-auth"); }
+function updateAuthUI(){
+  const loggedIn=!!state.user;
+  const label = loggedIn ? (state.profile.email||"") : "Guest";
+  const who1=$("#rib-who1"), who2=$("#rib-who2");
+  if(who1) who1.textContent=label;
+  if(who2) who2.textContent=label;
+  ["rib-auth1","rib-auth2"].forEach(id=>{
+    const btn=$("#"+id); if(!btn) return;
+    btn.textContent = loggedIn ? "Sign Out" : "Sign In";
+    btn.onclick = loggedIn ? doLogout : ()=>requireAuth(()=>{});
+  });
 }
 function friendlyAuthErr(e){
   const code=e?.code||"";
@@ -1118,9 +1150,13 @@ function normalizeQuestions(qRows,sections){
 
 /* ===================== CATEGORIES ===================== */
 function renderCategoriesScreen(){
-  const greetingName=state.profile.name||(state.user?.email||"Student");
-  $("#cat-greeting").textContent="Welcome, "+greetingName.split(" ")[0]+" 👋";
-  $("#rib-who1").textContent=state.profile.email; $("#rib-who2").textContent=state.profile.email;
+  if(state.user){
+    const greetingName=state.profile.name||state.profile.email||"Student";
+    $("#cat-greeting").textContent="Welcome back, "+greetingName.split(" ")[0]+" 👋";
+  } else {
+    $("#cat-greeting").textContent="Welcome to Target1st";
+  }
+  updateAuthUI();
   const active=state.allTests.filter(t=>(t.is_active||"yes").toLowerCase().trim()!=="no");
   if(active.length===0){ $("#cat-grid").innerHTML=`<div class="cat-empty" style="grid-column:1/-1"><h2>No tests yet</h2><p>No active tests. Check back later.</p></div>`; showScreen("screen-categories"); return; }
   const counts={};
@@ -1177,6 +1213,7 @@ function goTests(){ if(state.examStarted&&!state.examFinished){ if(!confirm("Lea
 
 /* ===================== LOAD A TEST ===================== */
 async function loadTest(testId){
+  if(!state.user){ requireAuth(()=>loadTest(testId)); return; }
   const test=state.allTests.find(t=>(t.test_id||"").trim()===testId);
   if(!test) return showError(null,"ERR-102");
   if(!hasAccessToTest(test)){ showPaywall(test); return; }
@@ -1608,25 +1645,41 @@ function bindGlobalEvents(){
 }
 
 /* ===================== BOOT ===================== */
+/* Browsing (categories/tests) is public — no login required to look around.
+   Login only pops up when requireAuth() is called, i.e. from loadTest()
+   (covers both "start a test" and "unlock/pay for a bundle", since paying
+   is triggered from inside loadTest's paywall) and from the Dashboard button. */
 async function boot(){
   bindGlobalEvents();
-  if(!initFirebase()){ showScreen("screen-auth"); return; }
+  const fbOk = initFirebase();
+  if(!fbOk){ showModal("modal-auth"); return; }
   firebase.auth().onAuthStateChanged(async (user)=>{
-    if(!user){ showScreen("screen-auth"); return; }
     state.user=user;
-    state.profile={ name:user.displayName||(user.email||"").split("@")[0], email:user.email||"", phone:localStorage.getItem("tb_phone_"+user.uid)||"" };
-    $("#loading-msg").textContent="Loading available tests…";
-    showScreen("screen-loading");
-    // loadAllData NEVER throws — it falls back to demo on failure
-    await ensureUserDoc();
-    await loadUserAccess();
-    await loadAllData();
-    renderCategoriesScreen();
-    // If Firestore read failed, show a dismissible diagnostic banner
-    if(state._usingDemo && state._dataErrors && state._dataErrors.length>0){
-      showDataErrorBanner(state._dataErrors);
+    if(user){
+      state.profile={ name:user.displayName||(user.email||"").split("@")[0], email:user.email||"", phone:localStorage.getItem("tb_phone_"+user.uid)||"" };
+      await ensureUserDoc();
+      await loadUserAccess();
+    } else {
+      state.profile={name:"",email:"",phone:""};
+      state.userAccess={purchasedExams:[]};
+    }
+    updateAuthUI();
+    if(user){
+      hideModal("modal-auth");
+      // Refresh unlock badges if the student is sat on the test list mid-purchase-flow
+      if($("#screen-tests").classList.contains("active") && state.selectedCategory) renderTestSelectionScreen();
+      if(state._pendingAfterLogin){ const fn=state._pendingAfterLogin; state._pendingAfterLogin=null; fn(); }
     }
   });
+  $("#loading-msg").textContent="Loading available tests…";
+  showScreen("screen-loading");
+  // loadAllData NEVER throws — it falls back to demo on failure
+  await loadAllData();
+  renderCategoriesScreen();
+  // If Firestore read failed, show a dismissible diagnostic banner
+  if(state._usingDemo && state._dataErrors && state._dataErrors.length>0){
+    showDataErrorBanner(state._dataErrors);
+  }
 }
 
 function showDataErrorBanner(errors){
