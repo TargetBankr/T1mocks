@@ -1094,9 +1094,24 @@ async function grantAccessAfterPayment(paymentId){
    not "total question bank size", which matters a lot on the free
    Spark plan's 50,000 reads/day cap. */
 state.testDataCache = {};
+const CATALOG_CACHE_KEY = "t1_catalog_cache_v1";
+const CATALOG_CACHE_TTL_MS = 10*60*1000; // 10 min — short enough that a newly-published test shows up quickly, long enough to skip re-reading the catalog on every page load/refresh within a session
 async function loadAllData(){
   try {
     if(!db) throw new Error("Firestore not initialized");
+    // Serve from localStorage when fresh: loadAllData() runs once per page
+    // load per visitor, so at 500-600 daily users this read is multiplied
+    // 500-600x/day even though the catalog itself barely changes. Caching
+    // it client-side is the cheapest possible win against the free Spark
+    // plan's 50,000 reads/day cap.
+    try {
+      const cached = JSON.parse(localStorage.getItem(CATALOG_CACHE_KEY)||"null");
+      if (cached && Array.isArray(cached.tests) && cached.tests.length && (Date.now()-cached.ts) < CATALOG_CACHE_TTL_MS) {
+        state.allTests=cached.tests; state.allConfig=[]; state.allQuestions=[];
+        state.allExams=cached.exams||[]; state._usingDemo=false; state._dataErrors=[];
+        return;
+      }
+    } catch(_){}
     const [testsSnap,examsSnap] = await Promise.all([
       db.collection("tests").get(),
       db.collection("exams").get()
@@ -1107,6 +1122,7 @@ async function loadAllData(){
     state.allConfig=[]; state.allQuestions=[]; // lazy-loaded per test now, see loadTest()
     state.allExams=examsSnap.docs.map(d=>d.data());
     state._usingDemo=false; state._dataErrors=[];
+    try { localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify({ts:Date.now(), tests:state.allTests, exams:state.allExams})); } catch(_){}
   } catch(e) {
     state.allTests=DEMO_TESTS; state.allConfig=DEMO_CONFIG; state.allQuestions=DEMO_QUESTIONS; state.allExams=DEMO_EXAMS;
     state._usingDemo=true; state._dataErrors=[e.message];
@@ -1226,12 +1242,21 @@ async function loadTest(testId){
   } else {
     showScreen("screen-loading"); $("#loading-msg").textContent="Loading test…";
     try {
-      const [sectionsSnap,questionsSnap] = await Promise.all([
-        db.collection("sections").where("test_id","==",testId).get(),
-        db.collection("questions").where("test_id","==",testId).get()
-      ]);
-      cfgRows=sectionsSnap.docs.map(d=>d.data());
-      qRows=questionsSnap.docs.map(d=>d.data());
+      // Sections+questions now live in one doc (test_content/{testId}) — 1 read
+      // instead of 1-per-section + 1-per-question. Falls back to the old
+      // per-collection query for any test not yet migrated to the new format.
+      const contentDoc = await db.collection("test_content").doc(testId).get();
+      if (contentDoc.exists) {
+        const data = contentDoc.data();
+        cfgRows = data.sections||[]; qRows = data.questions||[];
+      } else {
+        const [sectionsSnap,questionsSnap] = await Promise.all([
+          db.collection("sections").where("test_id","==",testId).get(),
+          db.collection("questions").where("test_id","==",testId).get()
+        ]);
+        cfgRows=sectionsSnap.docs.map(d=>d.data());
+        qRows=questionsSnap.docs.map(d=>d.data());
+      }
       state.testDataCache[testId]={cfgRows,qRows};
     } catch(e) {
       console.warn("loadTest fetch failed for", testId, "— technical detail:", e.message);
@@ -1561,8 +1586,29 @@ async function saveAttemptToFirestore(isFirstAttempt){
     setSaveStatus("✅ Score saved.","ok");
   }catch(e){ console.error("Firestore save failed:",e.message); setSaveStatus("❌ Error 105 — "+ERR["ERR-105"],"err"); }
 }
-async function updateLeaderboard(){ if(!db||!state.user) return; const {total}=computeResults(); try{ await db.collection("leaderboard").doc(state.selectedTestId).collection("entries").doc(state.user.uid).set({uid:state.user.uid,name:state.candidate.name,email:state.candidate.email,score:total.score,correct:total.correct,wrong:total.wrong,accuracy_pct:total.accuracy,timestamp:firebase.firestore.FieldValue.serverTimestamp()}); }catch(e){ console.error("Leaderboard update failed:",e.message); } }
-async function openLeaderboard(testId){ if(!testId){ showError("No test selected."); return; } const testName=state.allTests.find(t=>t.test_id===testId)?.test_name||testId; $("#ldr-head").textContent=`🏆 Leaderboard — ${testName}`; showModal("modal-leaderboard",`<div class='ldr-empty'>Loading…</div>`); if(!db){ $("#ldr-body").innerHTML=`<div class='ldr-empty'>Error 054 — leaderboard unavailable right now.</div>`; return; } try{ const snap=await db.collection("leaderboard").doc(testId).collection("entries").orderBy("score","desc").limit(50).get(); if(snap.empty){ $("#ldr-body").innerHTML=`<div class='ldr-empty'>No entries yet. Be the first!</div>`; return; } const myUid=state.user?.uid; let rank=0,html=`<table class='ldr-table'><thead><tr><th>#</th><th>Name</th><th>Score</th><th>Correct</th><th>Accuracy</th></tr></thead><tbody>`; snap.forEach(doc=>{ const e=doc.data(); rank++; const isMe=doc.id===myUid; const rankStr=rank===1?"🥇":rank===2?"🥈":rank===3?"🥉":rank; html+=`<tr class="${isMe?"me":""}"><td class="ldr-rank">${rankStr}</td><td>${escHTML(e.name||"—")}${isMe?" <span style='color:#1d8a4a;font-size:11px'>(you)</span>":""}</td><td>${e.score??0}</td><td>${e.correct??0}</td><td>${e.accuracy_pct??0}%</td></tr>`; }); html+=`</tbody></table>`; $("#ldr-body").innerHTML=html; }catch(e){ console.warn("Leaderboard load failed:",e.message); $("#ldr-body").innerHTML=`<div class='ldr-empty'>Error 052 — couldn't load the leaderboard right now. Try again shortly.</div>`; } }
+async function updateLeaderboard(){
+  if(!db||!state.user) return;
+  const {total}=computeResults();
+  try{
+    await db.collection("leaderboard").doc(state.selectedTestId).collection("entries").doc(state.user.uid).set({uid:state.user.uid,name:state.candidate.name,email:state.candidate.email,score:total.score,correct:total.correct,wrong:total.wrong,accuracy_pct:total.accuracy,timestamp:firebase.firestore.FieldValue.serverTimestamp()});
+  }catch(e){ console.error("Leaderboard update failed:",e.message); }
+  // Also fold this score into a single cached "top 50" summary doc per test.
+  // openLeaderboard() reads only this doc (1 read) instead of querying up to
+  // 50 individual entry docs (50 reads) every time anyone opens the board —
+  // at 500-600 daily users that difference is the gap between staying under
+  // the free Spark plan's 50k reads/day cap and blowing through it.
+  try{
+    const summaryRef=db.collection("leaderboard_summary").doc(state.selectedTestId);
+    await db.runTransaction(async (tx)=>{
+      const snap=await tx.get(summaryRef);
+      const top=(snap.exists?(snap.data().top||[]):[]).filter(e=>e.uid!==state.user.uid);
+      top.push({uid:state.user.uid,name:state.candidate.name,score:total.score,correct:total.correct,accuracy_pct:total.accuracy});
+      top.sort((a,b)=>(b.score||0)-(a.score||0));
+      tx.set(summaryRef,{top:top.slice(0,50),updated_at:firebase.firestore.FieldValue.serverTimestamp()});
+    });
+  }catch(e){ console.warn("Leaderboard summary update failed:",e.message); }
+}
+async function openLeaderboard(testId){ if(!testId){ showError("No test selected."); return; } const testName=state.allTests.find(t=>t.test_id===testId)?.test_name||testId; $("#ldr-head").textContent=`🏆 Leaderboard — ${testName}`; showModal("modal-leaderboard",`<div class='ldr-empty'>Loading…</div>`); if(!db){ $("#ldr-body").innerHTML=`<div class='ldr-empty'>Error 054 — leaderboard unavailable right now.</div>`; return; } try{ const snap=await db.collection("leaderboard_summary").doc(testId).get(); const top=snap.exists?(snap.data().top||[]):[]; if(top.length===0){ $("#ldr-body").innerHTML=`<div class='ldr-empty'>No entries yet. Be the first!</div>`; return; } const myUid=state.user?.uid; let rank=0,html=`<table class='ldr-table'><thead><tr><th>#</th><th>Name</th><th>Score</th><th>Correct</th><th>Accuracy</th></tr></thead><tbody>`; top.forEach(e=>{ rank++; const isMe=e.uid===myUid; const rankStr=rank===1?"🥇":rank===2?"🥈":rank===3?"🥉":rank; html+=`<tr class="${isMe?"me":""}"><td class="ldr-rank">${rankStr}</td><td>${escHTML(e.name||"—")}${isMe?" <span style='color:#1d8a4a;font-size:11px'>(you)</span>":""}</td><td>${e.score??0}</td><td>${e.correct??0}</td><td>${e.accuracy_pct??0}%</td></tr>`; }); html+=`</tbody></table>`; $("#ldr-body").innerHTML=html; }catch(e){ console.warn("Leaderboard load failed:",e.message); $("#ldr-body").innerHTML=`<div class='ldr-empty'>Error 052 — couldn't load the leaderboard right now. Try again shortly.</div>`; } }
 
 /* ---- Dashboard ---- */
 async function openDashboard(){ showScreen("screen-dashboard"); $("#dash-sub").textContent="Loading your performance data…"; if(!db||!state.user){ $("#dash-sub").textContent="Error 055 — please sign in again to view your dashboard."; return; } try{ const snap=await db.collection("users").doc(state.user.uid).collection("attempts").orderBy("timestamp","desc").limit(100).get(); if(snap.empty){ $("#dash-sub").textContent="No attempts yet. Take a test to see your dashboard!"; ["dov-tests","dov-avg-score","dov-avg-acc","dov-best","dov-total-time"].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent="—"; }); ["dash-trend","dash-weakness","dash-attempts"].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=`<div style='color:var(--c-muted);font-size:13px;padding:12px 0'>No data yet.</div>`; }); return; } const attempts=[]; snap.forEach(doc=>attempts.push({id:doc.id,...doc.data()})); $("#dash-sub").textContent=`${state.profile.name||"Student"} · ${attempts.length} attempt${attempts.length!==1?"s":""} total`; const scores=attempts.map(a=>a.score??0),accs=attempts.map(a=>a.accuracy_pct??0),times=attempts.map(a=>a.time_taken_sec??0); const uniqueTests=new Set(attempts.map(a=>a.test_id)).size; const avgScore=scores.length?Math.round(scores.reduce((a,b)=>a+b,0)/scores.length*10)/10:0; const avgAcc=accs.length?Math.round(accs.reduce((a,b)=>a+b,0)/accs.length*10)/10:0; const bestScore=Math.max(...scores); const totalTimeSec=times.reduce((a,b)=>a+b,0); const totalTimeStr=totalTimeSec<3600?`${Math.round(totalTimeSec/60)} min`:`${Math.floor(totalTimeSec/3600)}h ${Math.round((totalTimeSec%3600)/60)}m`; document.getElementById("dov-tests").textContent=uniqueTests; document.getElementById("dov-avg-score").textContent=avgScore; document.getElementById("dov-avg-acc").textContent=avgAcc+"%"; document.getElementById("dov-best").textContent=bestScore; document.getElementById("dov-total-time").textContent=totalTimeStr; const latestByTest={}; attempts.slice().reverse().forEach(a=>{ latestByTest[a.test_id]=a; }); const byTest={}; attempts.forEach(a=>{ (byTest[a.test_id]=byTest[a.test_id]||[]).push(a); }); const trendHtml=Object.values(latestByTest).map(a=>{ const all=byTest[a.test_id]||[]; const prev=all.length>=2?all[1]:null; const diff=prev?(a.score-prev.score):null; const dotCls=diff===null?"same":diff>0?"up":diff<0?"down":"same"; const changeStr=diff===null?"first attempt":diff>0?`+${diff} from prev`:diff<0?`${diff} from prev`:"same as prev"; return `<div class='trend-row'><div class='trend-dot ${dotCls}'></div><div class='tr-name'>${escHTML(a.test_name||a.test_id)}</div><div class='tr-score'>${a.score??0}</div><div class='tr-change'>${changeStr}</div></div>`; }).join("")||"<div style='color:var(--c-muted);font-size:13px'>No data yet.</div>"; document.getElementById("dash-trend").innerHTML=trendHtml; const secStats={}; attempts.forEach(a=>{ (a.section_breakdown||[]).forEach(s=>{ const k=s.section_name||s.section_id; if(!secStats[k]) secStats[k]={correct:0,attempted:0}; secStats[k].correct+=s.correct||0; secStats[k].attempted+=s.attempted||0; }); }); const weakHtml=Object.entries(secStats).map(([name,d])=>{ const acc=d.attempted>0?Math.round(d.correct/d.attempted*100):0; const barColor=acc>=70?"var(--c-green)":acc>=40?"#f39c12":"var(--c-red)"; return `<div class='weak-item'><div class='wi-name'>${escHTML(name)}</div><div class='weak-bar-bg'><div class='weak-bar-fill' style='width:${acc}%;background:${barColor}'></div></div><div class='wi-stat'>${acc}% accuracy · ${d.correct}/${d.attempted} correct</div></div>`; }).join("")||"<div style='color:var(--c-muted);font-size:13px'>No data yet.</div>"; document.getElementById("dash-weakness").innerHTML=weakHtml; const attHtml=attempts.map(a=>{ const ts=a.timestamp?.toDate?a.timestamp.toDate().toLocaleDateString():"—"; const badgeCls=a.is_first_attempt?"att-badge first":"att-badge"; const badgeTxt=a.is_first_attempt?"1st Attempt":"Retry"; return `<div class='dash-att'><div class='att-name'>${escHTML(a.test_name||a.test_id)}</div><span class='${badgeCls}'>${badgeTxt}</span><div class='att-score'>${a.score??0}</div><div class='att-meta'>${a.accuracy_pct??0}% accuracy · ${a.correct??0}C ${a.wrong??0}W · ${fmtTime(a.time_taken_sec||0)}</div><div class='att-meta'>${ts}</div></div>`; }).join(""); document.getElementById("dash-attempts").innerHTML=attHtml; }catch(e){ console.warn("Dashboard load failed:",e.message); $("#dash-sub").textContent="Error 053 — couldn't load your dashboard right now. Try again shortly."; } }

@@ -632,6 +632,13 @@ EXPLAIN: Keyboard is used to input data."></textarea>
 };</pre>
       <button class="btn ghost" onclick="copyFirebase()">📋 Copy Snippet</button>
     </div>
+    <div class="card">
+      <h2>🔄 One-time data migration</h2>
+      <p>Sections/questions used to be stored one Firestore doc per section and per question. They're now stored as a single <code class="inline">test_content/{testId}</code> doc per test (so opening a test in app.html costs 1 read instead of 1-per-question). New tests you add or import already use the new format automatically.</p>
+      <p><b>Existing tests created before this change</b> still only have the old <code class="inline">sections</code>/<code class="inline">questions</code> docs. Run this once to copy them into the new format — it reads your old data and writes the new <code class="inline">test_content</code> docs; it does not delete or touch the old <code class="inline">sections</code>/<code class="inline">questions</code> collections, so nothing is destructive. Safe to run more than once.</p>
+      <button class="btn green" id="btn-migrate-content" onclick="migrateLegacyContent()">🔄 Migrate existing tests to test_content</button>
+      <div id="migrate-result" style="margin-top:10px;font-size:13px;color:var(--muted)"></div>
+    </div>
   </div>
 
   <!-- ===== Error Codes ===== -->
@@ -875,6 +882,72 @@ async function fsDelete(collection, id, btnId) {
   } catch(e) { toast("❌ " + e.message, true); return false; }
 }
 
+/* ───── Consolidated test-content writes ──────────────────────
+   Sections + questions used to be one Firestore doc each. That meant
+   opening a test in app.html cost 1 read per section + 1 per question —
+   a 100-question test cost 100 reads EVERY time a student opened it,
+   multiplied by however many students open it that day. At 500-600
+   daily users that alone blows past the free Spark plan's 50,000
+   reads/day cap.
+   Sections/questions for a test now live in ONE doc, test_content/{testId}
+   = {sections:[...], questions:[...]}, built from the in-memory
+   _allConfig/_allQuestions arrays (which the rest of this file already
+   treats as the source of truth for rendering — nothing UI-side changes).
+   Opening a test app-side is now always exactly 1 read, regardless of
+   question count. Every write below updates the local arrays first,
+   then saves the whole doc in one shot; on failure the local arrays are
+   rolled back so the UI doesn't show unsaved changes as saved. */
+async function persistTestContent(testId, btnId, successMsg) {
+  const sections = _allConfig.filter(c => c.test_id === testId);
+  const questions = _allQuestions.filter(q => q.test_id === testId);
+  return await fsSet("test_content", testId, {
+    test_id: testId, sections, questions,
+    updated_at: firebase.firestore.FieldValue.serverTimestamp()
+  }, btnId, successMsg);
+}
+
+/* One-time backfill: reads the OLD per-doc sections/questions collections
+   (a big read, but a single admin-only one-time cost — not something that
+   ever runs for a student) and writes them into the new test_content/{testId}
+   docs. Leaves the old collections untouched, so it's safe to re-run. */
+async function migrateLegacyContent() {
+  const btn = document.getElementById("btn-migrate-content");
+  const out = document.getElementById("migrate-result");
+  btn.disabled = true; btn.textContent = "Migrating…";
+  out.textContent = "Reading old sections/questions collections…";
+  try {
+    const [testsSnap, sectionsSnap, questionsSnap] = await Promise.all([
+      db.collection("tests").get(),
+      db.collection("sections").get(),
+      db.collection("questions").get()
+    ]);
+    const testIds = testsSnap.docs.map(d => d.id);
+    const byTest = {};
+    testIds.forEach(id => byTest[id] = { sections: [], questions: [] });
+    sectionsSnap.docs.forEach(d => { const s = d.data(); if (byTest[s.test_id]) byTest[s.test_id].sections.push(s); });
+    questionsSnap.docs.forEach(d => { const q = d.data(); if (byTest[q.test_id]) byTest[q.test_id].questions.push(q); });
+    let migrated = 0, skipped = 0;
+    for (const testId of testIds) {
+      const { sections, questions } = byTest[testId];
+      if (sections.length === 0 && questions.length === 0) { skipped++; continue; }
+      await db.collection("test_content").doc(testId).set({
+        test_id: testId, sections, questions,
+        updated_at: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      migrated++;
+      out.textContent = `Migrated ${migrated}/${testIds.length}…`;
+    }
+    out.textContent = `✅ Done — migrated ${migrated} test(s), skipped ${skipped} with no legacy content.`;
+    toast(`✅ Migrated ${migrated} test(s) to the new format`);
+    if (_adminDataLoaded) loadManageData(true);
+  } catch(e) {
+    out.textContent = `❌ Migration failed: ${e.message}`;
+    toast("❌ Migration failed: " + e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = "🔄 Migrate existing tests to test_content";
+  }
+}
+
 /* ───── Exams / Bundles ───────────────────────── */
 async function addExam() {
   const exam_id = g("e_exam_id");
@@ -1000,8 +1073,10 @@ async function addConfig() {
   if (!v.test_id || !v.section_id || !v.section_name || !v.num_questions || !v.time_minutes) {
     toast("❌ Fill all required (*) fields", true); return;
   }
-  const ok = await fsSet("sections", test_id + "__" + section_id, v, "btn-add-config", "Section added");
-  if (ok) { clearForm("config"); upsertSectionLocal(v); refreshAdminUI(); }
+  const prevConfig = _allConfig.slice();
+  upsertSectionLocal(v);
+  const ok = await persistTestContent(test_id, "btn-add-config", "Section added");
+  if (ok) { clearForm("config"); refreshAdminUI(); } else { _allConfig = prevConfig; }
 }
 
 /* ───── Add Question ─────────────────────────── */
@@ -1033,9 +1108,11 @@ async function addQuestion(andNext) {
   if (!isDesc && (!v.option_a || !v.option_b || !v.option_c || !v.option_d)) {
     toast("❌ Fill Options A, B, C, D for MCQ questions", true); return;
   }
-  const docId = test_id + "__" + section_id + "__" + qno;
-  const ok = await fsSet("questions", docId, v, andNext ? "btn-add-q-next" : "btn-add-q", "Question added");
-  if (ok && andNext) {
+  const prevQuestions = _allQuestions.slice();
+  upsertQuestionLocal(v);
+  const ok = await persistTestContent(test_id, andNext ? "btn-add-q-next" : "btn-add-q", "Question added");
+  if (!ok) { _allQuestions = prevQuestions; return; }
+  if (andNext) {
     const nextQno = parseInt(v.qno) + 1;
     clearForm("question", true);
     document.getElementById("q_test_id").value = v.test_id;
@@ -1054,9 +1131,8 @@ async function addQuestion(andNext) {
       document.getElementById("q_descriptive_type").value = v.descriptive_type;
       document.getElementById("q_descriptive_word_limit").value = v.descriptive_word_limit;
     }
-    upsertQuestionLocal(v);
     refreshAdminUI();
-  } else if (ok) { clearForm("question"); upsertQuestionLocal(v); refreshAdminUI(); }
+  } else { clearForm("question"); refreshAdminUI(); }
 }
 function toggleGroupFields() { toggleQuestionTypeFields(); }
 function toggleQuestionTypeFields() {
@@ -1118,20 +1194,18 @@ async function commitBulkImport() {
   const btn = document.getElementById("btn-commit-import");
   btn.disabled = true; btn.textContent = "Importing…";
   try {
-    const ops = [];
-    ops.push([db.collection("tests").doc(p.test.test_id), p.test]);
-    p.sections.forEach(s => ops.push([db.collection("sections").doc(`${p.test.test_id}__${s.section_id}`), s]));
-    p.questions.forEach(q => ops.push([db.collection("questions").doc(`${p.test.test_id}__${q.section_id}__${q.qno}`), q]));
-    for (let i=0;i<ops.length;i+=450) {
-      const batch = db.batch();
-      ops.slice(i,i+450).forEach(([ref,data]) => batch.set(ref,data));
-      await batch.commit();
-    }
+    await db.collection("tests").doc(p.test.test_id).set(p.test);
+    // One doc for the whole test's sections+questions — see persistTestContent
+    // above for why this matters at 500-600 daily users.
+    await db.collection("test_content").doc(p.test.test_id).set({
+      test_id: p.test.test_id, sections: p.sections, questions: p.questions,
+      updated_at: firebase.firestore.FieldValue.serverTimestamp()
+    });
     toast(`✅ Imported: ${p.sections.length} section(s), ${p.questions.length} question(s)`);
     document.getElementById("bi-preview").innerHTML = `<div class="pv-empty" style="border-color:#166534;color:#166534">✅ Import complete.</div>`;
     upsertTestLocal(p.test);
-    p.sections.forEach(upsertSectionLocal);
-    p.questions.forEach(upsertQuestionLocal);
+    _allConfig = _allConfig.filter(s => s.test_id !== p.test.test_id).concat(p.sections);
+    _allQuestions = _allQuestions.filter(q => q.test_id !== p.test.test_id).concat(p.questions);
     refreshAdminUI();
   } catch(e) { toast("❌ Import failed: " + e.message, true); }
   finally { if(btn){ btn.disabled=false; btn.textContent="💾 Import to Firestore"; } }
@@ -1304,15 +1378,18 @@ async function loadManageData(force) {
   const grid = document.getElementById("manage-grid");
   if (grid) grid.innerHTML = '<div class="pv-empty" style="grid-column:1/-1">Loading…</div>';
   try {
-    const [testsSnap, sectionsSnap, questionsSnap, examsSnap] = await Promise.all([
+    const [testsSnap, contentSnap, examsSnap] = await Promise.all([
       db.collection("tests").get(),
-      db.collection("sections").get(),
-      db.collection("questions").get(),
+      db.collection("test_content").get(),
       db.collection("exams").get()
     ]);
     _allTests = testsSnap.docs.map(d => d.data());
-    _allConfig = sectionsSnap.docs.map(d => d.data());
-    _allQuestions = questionsSnap.docs.map(d => d.data());
+    _allConfig = []; _allQuestions = [];
+    contentSnap.docs.forEach(d => {
+      const c = d.data();
+      _allConfig = _allConfig.concat(c.sections||[]);
+      _allQuestions = _allQuestions.concat(c.questions||[]);
+    });
     _allExams = examsSnap.docs.map(d => d.data());
     _adminDataLoaded = true;
     refreshAdminUI();
@@ -1414,11 +1491,8 @@ async function deleteTest(testId) {
   const testSecs = _allConfig.filter(c => c.test_id === testId);
   if (!confirm(`Delete test "${testId}"?\n\n• ${testSecs.length} section(s)\n• ${testQs.length} question(s)\n\nThis cannot be undone.`)) return;
   try {
-    const batch = db.batch();
-    testQs.forEach(q => batch.delete(db.collection("questions").doc(`${q.test_id}__${q.section_id}__${q.qno}`)));
-    testSecs.forEach(s => batch.delete(db.collection("sections").doc(`${s.test_id}__${s.section_id}`)));
-    batch.delete(db.collection("tests").doc(testId));
-    await batch.commit();
+    await db.collection("test_content").doc(testId).delete();
+    await db.collection("tests").doc(testId).delete();
     toast("✅ Test deleted");
     removeTestLocal(testId);
     _allConfig = _allConfig.filter(s => s.test_id !== testId);
@@ -1593,7 +1667,6 @@ function renderInlineEditForm(q, total, idx) {
     </div>`;
 }
 async function saveInlineEdit(qno) {
-  const docId = `${_previewTestId}__${_previewSecId}__${qno}`;
   const v = {
     type: document.getElementById("ie_type").value,
     group_id: document.getElementById("ie_group_id").value.trim(),
@@ -1611,27 +1684,27 @@ async function saveInlineEdit(qno) {
     explanation: document.getElementById("ie_explanation").value,
     explanation_image_url: document.getElementById("ie_exp_img").value.trim()
   };
-  const ok = await fsUpdate("questions", docId, v, "btn-save-q", "Question updated");
+  const prevQuestions = _allQuestions.slice();
+  const existingQ = _allQuestions.find(x=>x.test_id===_previewTestId&&x.section_id===_previewSecId&&String(x.qno)===String(qno));
+  upsertQuestionLocal({ ...(existingQ||{}), test_id:_previewTestId, section_id:_previewSecId, qno, ...v });
+  const ok = await persistTestContent(_previewTestId, "btn-save-q", "Question updated");
   if (ok) {
     _editingQ = false;
-    const existingQ = _allQuestions.find(x=>x.test_id===_previewTestId&&x.section_id===_previewSecId&&String(x.qno)===String(qno));
-    upsertQuestionLocal({ ...(existingQ||{}), test_id:_previewTestId, section_id:_previewSecId, qno, ...v });
     renderPreviewPalette();
     renderPreviewQuestion();
-  }
+  } else { _allQuestions = prevQuestions; }
 }
 async function deleteCurrentQuestion() {
   if (!confirm(`Delete question Q.No ${_previewQno} from section ${_previewSecId}?`)) return;
-  const docId = `${_previewTestId}__${_previewSecId}__${_previewQno}`;
-  const ok = await fsDelete("questions", docId);
+  const prevQuestions = _allQuestions.slice();
+  removeQuestionLocal(_previewTestId, _previewSecId, _previewQno);
+  const ok = await persistTestContent(_previewTestId, null, "Question deleted");
   if (ok) {
-    toast("✅ Question deleted");
-    removeQuestionLocal(_previewTestId, _previewSecId, _previewQno);
     const qs = _allQuestions.filter(q => q.test_id === _previewTestId && q.section_id === _previewSecId)
       .sort((a,b) => parseInt(a.qno)-parseInt(b.qno));
     _previewQno = qs[0]?.qno || null;
     renderPreviewPalette(); renderPreviewQuestion();
-  }
+  } else { _allQuestions = prevQuestions; }
 }
 
 /* ───── Users & Activity ─────────────────────── */
