@@ -136,6 +136,7 @@
   .data-table{width:100%;border-collapse:collapse;font-size:12px}
   .data-table th,.data-table td{padding:6px 8px;border:1px solid var(--line);text-align:left;vertical-align:top}
   .data-table th{background:#eef2f7;color:var(--blue-d);font-weight:700;position:sticky;top:0}
+  .data-table th.sortable-th:hover{background:#dfe7f0}
   .data-table td{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
   /* ---- MODAL ---- */
@@ -1796,7 +1797,8 @@ function renderUsersOverview() {
     const avgAcc = accs.length ? (accs.reduce((s,v) => s+v, 0) / accs.length).toFixed(1) + "%" : "—";
 
     const dates = myAttempts.map(a => toJsDate(a.timestamp)).filter(Boolean);
-    const lastActivity = dates.length ? new Date(Math.max(...dates)).toLocaleString("en-IN") : "—";
+    const lastActivityMs = dates.length ? Math.max(...dates.map(d => d.getTime())) : 0;
+    const lastActivity = dates.length ? new Date(lastActivityMs).toLocaleString("en-IN") : "—";
 
     const myRanks = Object.values(rankByUidTest[u.uid] || {});
     const bestRank = myRanks.length ? "#" + Math.min(...myRanks) : "—";
@@ -1815,24 +1817,38 @@ function renderUsersOverview() {
       "Avg Accuracy": avgAcc,
       "Best Leaderboard Rank": bestRank,
       "Amount Spent (₹)": spent,
-      "Last Activity": lastActivity
+      "Last Activity": lastActivity,
+      "__sort_Last Activity": lastActivityMs
     };
   });
 
-  document.getElementById("users-table-output").innerHTML = renderObjTable(rows);
-  document.getElementById("purchases-table-output").innerHTML = renderObjTable(_allPurchases);
-  document.getElementById("attempts-table-output").innerHTML = renderObjTable(_allAttempts.map(a => ({
-    test_name: a.test_name, candidate_name: a.candidate_name, candidate_email: a.candidate_email,
-    score: a.score, correct: a.correct, wrong: a.wrong, attempted: a.attempted, accuracy_pct: a.accuracy_pct,
-    time_taken_sec: a.time_taken_sec, is_first_attempt: a.is_first_attempt,
-    when: toJsDate(a.timestamp) ? toJsDate(a.timestamp).toLocaleString("en-IN") : "—",
-    uid: a.uid, test_id: a.test_id
-  })));
-  document.getElementById("leaderboard-table-output").innerHTML = renderObjTable(_allLeaderboard.map(l => ({
-    test_id: l.test_id, rank: (rankByUidTest[l.uid] || {})[l.test_id] || "—",
-    name: l.name, email: l.email, score: l.score, correct: l.correct, wrong: l.wrong, accuracy_pct: l.accuracy_pct,
-    when: toJsDate(l.timestamp) ? toJsDate(l.timestamp).toLocaleString("en-IN") : "—", uid: l.uid
-  })));
+  // Default sort: latest activity/attempt/entry first, until the admin clicks a header to change it.
+  if (!_tableSortState.users) _tableSortState.users = { col: "Last Activity", dir: "desc" };
+  if (!_tableSortState.attempts) _tableSortState.attempts = { col: "when", dir: "desc" };
+  if (!_tableSortState.leaderboard) _tableSortState.leaderboard = { col: "when", dir: "desc" };
+
+  document.getElementById("users-table-output").innerHTML = renderObjTable(rows, "users");
+  document.getElementById("purchases-table-output").innerHTML = renderObjTable(_allPurchases, "purchases");
+  document.getElementById("attempts-table-output").innerHTML = renderObjTable(_allAttempts.map(a => {
+    const ts = toJsDate(a.timestamp);
+    return {
+      test_name: a.test_name, candidate_name: a.candidate_name, candidate_email: a.candidate_email,
+      score: a.score, correct: a.correct, wrong: a.wrong, attempted: a.attempted, accuracy_pct: a.accuracy_pct,
+      time_taken_sec: a.time_taken_sec, is_first_attempt: a.is_first_attempt,
+      when: ts ? ts.toLocaleString("en-IN") : "—",
+      uid: a.uid, test_id: a.test_id,
+      __sort_when: ts ? ts.getTime() : 0
+    };
+  }), "attempts");
+  document.getElementById("leaderboard-table-output").innerHTML = renderObjTable(_allLeaderboard.map(l => {
+    const ts = toJsDate(l.timestamp);
+    return {
+      test_id: l.test_id, rank: (rankByUidTest[l.uid] || {})[l.test_id] || "—",
+      name: l.name, email: l.email, score: l.score, correct: l.correct, wrong: l.wrong, accuracy_pct: l.accuracy_pct,
+      when: ts ? ts.toLocaleString("en-IN") : "—", uid: l.uid,
+      __sort_when: ts ? ts.getTime() : 0
+    };
+  }), "leaderboard");
 }
 
 /* ───── View Data ────────────────────────────── */
@@ -1850,12 +1866,52 @@ async function loadData() {
   } catch(e) { toast("❌ Load failed: " + e.message, true); }
   finally { btn.disabled = false; btn.textContent = "🔄 Load Data from Firestore"; }
 }
-function renderObjTable(rows) {
+// tableId lets a table's header be clicked to sort. Raw (unsorted) rows are
+// cached under _tableRawData[tableId] so re-sorts don't need a Firestore reload;
+// _tableSortState[tableId] remembers the active column/direction across re-renders.
+// A row can carry a hidden "__sort_<Header>" key (excluded from display) to give
+// a column a proper sort value (e.g. a millis timestamp) instead of sorting its
+// formatted display string.
+const _tableRawData = {};
+const _tableSortState = {};
+function sortRows(rows, col, dir) {
+  const key = "__sort_" + col;
+  const useHidden = rows.some(r => key in r);
+  const copy = rows.slice();
+  copy.sort((a, b) => {
+    const va = useHidden ? a[key] : a[col];
+    const vb = useHidden ? b[key] : b[col];
+    let cmp;
+    const na = parseFloat(va), nb = parseFloat(vb);
+    const bothNumeric = !isNaN(na) && !isNaN(nb) && String(va ?? "").trim() !== "" && String(vb ?? "").trim() !== "";
+    if (bothNumeric) cmp = na - nb;
+    else cmp = String(va ?? "").localeCompare(String(vb ?? ""));
+    return dir === "asc" ? cmp : -cmp;
+  });
+  return copy;
+}
+function sortTable(tableId, col) {
+  const cur = _tableSortState[tableId];
+  const dir = (cur && cur.col === col && cur.dir === "desc") ? "asc" : "desc";
+  _tableSortState[tableId] = { col, dir };
+  const el = document.getElementById(tableId + "-table-output");
+  if (el) el.innerHTML = renderObjTable(_tableRawData[tableId] || [], tableId);
+}
+function renderObjTable(rows, tableId) {
   if (!rows || rows.length === 0) return "<p style='color:var(--muted);font-size:13px'>No data yet.</p>";
-  const headers = Array.from(rows.reduce((set,r) => { Object.keys(r).forEach(k=>set.add(k)); return set; }, new Set()));
+  if (tableId) _tableRawData[tableId] = rows;
+  const headers = Array.from(rows.reduce((set,r) => { Object.keys(r).forEach(k=>{ if (!k.startsWith("__sort_")) set.add(k); }); return set; }, new Set()));
+  const sortSt = tableId ? _tableSortState[tableId] : null;
+  const sortedRows = sortSt ? sortRows(rows, sortSt.col, sortSt.dir) : rows;
   let t = "<div style='overflow:auto;max-height:400px;margin-bottom:16px'><table class='data-table'><thead><tr>";
-  headers.forEach(h => { t += `<th>${escHTML(h)}</th>`; }); t += "</tr></thead><tbody>";
-  rows.forEach(row => { t += "<tr>"; headers.forEach(h => { const cell = row[h]; t += `<td title="${escAttr(String(cell??""))}">${escHTML(String(cell==null?"—":cell))}</td>`; }); t += "</tr>"; });
+  headers.forEach(h => {
+    if (!tableId) { t += `<th>${escHTML(h)}</th>`; return; }
+    const active = sortSt && sortSt.col === h;
+    const arrow = active ? (sortSt.dir === "asc" ? " ▲" : " ▼") : "";
+    t += `<th class="sortable-th" title="Click to sort" onclick='sortTable("${tableId}", ${JSON.stringify(h)})'>${escHTML(h)}${arrow}</th>`;
+  });
+  t += "</tr></thead><tbody>";
+  sortedRows.forEach(row => { t += "<tr>"; headers.forEach(h => { const cell = row[h]; t += `<td title="${escAttr(String(cell??""))}">${escHTML(String(cell==null?"—":cell))}</td>`; }); t += "</tr>"; });
   t += "</tbody></table></div>"; return t;
 }
 
