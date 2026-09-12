@@ -1100,6 +1100,12 @@ async function grantAccessAfterPayment(paymentId){
 state.testDataCache = {};
 const CATALOG_CACHE_KEY = "t1_catalog_cache_v1";
 const CATALOG_CACHE_TTL_MS = 10*60*1000; // 10 min — short enough that a newly-published test shows up quickly, long enough to skip re-reading the catalog on every page load/refresh within a session
+// Plain string sort puts "Mock Test 10"/"Mock Test 11" before "Mock Test 2" (dictionary
+// order compares digit-by-digit: "1" < "2"). {numeric:true} makes localeCompare treat
+// embedded digit runs as numbers instead, so 2 < 10 < 11 like a human would expect.
+function naturalTestSort(a,b){
+  return String(a.test_name||a.test_id||"").localeCompare(String(b.test_name||b.test_id||""), undefined, {numeric:true, sensitivity:"base"});
+}
 async function loadAllData(){
   try {
     if(!db) throw new Error("Firestore not initialized");
@@ -1111,7 +1117,7 @@ async function loadAllData(){
     try {
       const cached = JSON.parse(localStorage.getItem(CATALOG_CACHE_KEY)||"null");
       if (cached && Array.isArray(cached.tests) && cached.tests.length && (Date.now()-cached.ts) < CATALOG_CACHE_TTL_MS) {
-        state.allTests=cached.tests; state.allConfig=[]; state.allQuestions=[];
+        state.allTests=cached.tests.slice().sort(naturalTestSort); state.allConfig=[]; state.allQuestions=[];
         state.allExams=cached.exams||[]; state._usingDemo=false; state._dataErrors=[];
         return;
       }
@@ -1122,13 +1128,13 @@ async function loadAllData(){
     ]);
     const tests=testsSnap.docs.map(d=>d.data());
     if(tests.length===0) throw new Error("No tests found in Firestore yet");
-    state.allTests=tests;
+    state.allTests=tests.sort(naturalTestSort);
     state.allConfig=[]; state.allQuestions=[]; // lazy-loaded per test now, see loadTest()
     state.allExams=examsSnap.docs.map(d=>d.data());
     state._usingDemo=false; state._dataErrors=[];
     try { localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify({ts:Date.now(), tests:state.allTests, exams:state.allExams})); } catch(_){}
   } catch(e) {
-    state.allTests=DEMO_TESTS; state.allConfig=DEMO_CONFIG; state.allQuestions=DEMO_QUESTIONS; state.allExams=DEMO_EXAMS;
+    state.allTests=DEMO_TESTS.slice().sort(naturalTestSort); state.allConfig=DEMO_CONFIG; state.allQuestions=DEMO_QUESTIONS; state.allExams=DEMO_EXAMS;
     state._usingDemo=true; state._dataErrors=[e.message];
     console.warn("Firestore data load failed, using demo data:", e.message);
   }
