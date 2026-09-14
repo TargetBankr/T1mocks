@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://prep.target1st.in/sitemap.xml
