@@ -188,9 +188,31 @@
   .ref-table th{background:var(--blue-l);color:var(--blue-d)}
   .ref-table code{background:#eef;padding:1px 6px;border-radius:3px;font-family:'Consolas',monospace;font-size:12px}
 
+  /* ---- LEADS (mobile-first cards) ---- */
+  .lead-filters{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 14px}
+  .lead-chip{background:#eef2f7;color:var(--muted);border:1px solid var(--line);padding:7px 13px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer}
+  .lead-chip.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+  #leads-cards{display:flex;flex-direction:column;gap:10px}
+  .lead-card{border:1px solid var(--line);border-left:4px solid var(--red);border-radius:8px;padding:12px 14px;background:#fffaf9}
+  .lead-card.lc-won{border-left-color:var(--green-d);background:#f8fdfa}
+  .lc-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .lc-name{font-weight:700;color:var(--blue-d);font-size:14px}
+  .lc-badge{font-size:10px;font-weight:800;background:#fdecea;color:var(--red-d);padding:3px 9px;border-radius:10px;white-space:nowrap}
+  .lc-badge.won{background:#d5f5e3;color:var(--green-d)}
+  .lc-exam{font-size:13px;color:var(--text);margin-top:4px}
+  .lc-sub{font-size:11px;color:var(--muted);margin-top:2px}
+  .lc-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .lc-btn{flex:1;min-width:90px;text-align:center;padding:9px 8px;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none;color:#fff}
+  .lc-btn.call{background:var(--blue)}
+  .lc-btn.wa{background:#25D366}
+  .lc-btn.mail{background:var(--orange)}
+
   @media (max-width:780px){
     .form-row,.form-row.three{grid-template-columns:1fr}
     .pv-palette{width:170px}
+    .data-table{font-size:11px}
+    .data-table td{max-width:160px}
+    .lc-btn{min-width:80px;padding:10px 6px}
   }
 </style>
 </head>
@@ -254,10 +276,15 @@
 service cloud.firestore {
   match /databases/{database}/documents {
     match /exams/{id}    { allow read: if true; allow write: if request.auth.uid == "ADMIN_UID"; }
-    match /tests/{id}     { allow read: if request.auth != null; allow write: if request.auth.uid == "ADMIN_UID"; }
+    match /tests/{id}     { allow read: if true; allow write: if request.auth.uid == "ADMIN_UID"; }
     match /sections/{id}  { allow read: if request.auth != null; allow write: if request.auth.uid == "ADMIN_UID"; }
     match /questions/{id} { allow read: if request.auth != null; allow write: if request.auth.uid == "ADMIN_UID"; }
+    match /test_content/{id} { allow read: if request.auth != null; allow write: if request.auth.uid == "ADMIN_UID"; }
     match /purchases/{id} { allow read: if request.auth.uid == "ADMIN_UID"; allow create: if request.auth != null; }
+    match /leads/{id} {
+      allow read: if request.auth.uid == "ADMIN_UID";
+      allow create, update: if request.auth != null && request.resource.data.uid == request.auth.uid;
+    }
     match /users/{uid} {
       allow read, write: if request.auth.uid == uid;
       allow read, write: if request.auth.uid == "ADMIN_UID";
@@ -267,9 +294,19 @@ service cloud.firestore {
       }
     }
     match /leaderboard/{tid}/entries/{uid} { allow read: if request.auth != null; allow write: if request.auth.uid == uid; }
+    match /leaderboard_summary/{tid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.resource.data.top is list
+        && request.resource.data.top.size() <= 50
+        && (resource == null || request.resource.data.top.size() >= resource.data.top.size() - 1);
+    }
+
+    match /{path=**}/attempts/{aid} { allow read: if request.auth.uid == "ADMIN_UID"; }
+    match /{path=**}/entries/{uid}  { allow read: if request.auth != null; }
   }
 }</pre>
-        <p style="font-size:12px;color:var(--muted)">The <code class="inline">users</code> write rule now also allows your admin account — needed for the "Manually Grant Bundle Access" tool in the Exams tab, which writes to a student's user doc on your behalf. The <code class="inline">attempts</code> subcollection now also grants your admin account <b>read</b> access — needed for the 👥 Users tab, which reads every student's attempts via a collection-group query. If you already pasted the old rules into Firebase Console, re-paste this updated version or the Users tab will show a permission error.</p>
+        <p style="font-size:12px;color:var(--muted)">The <code class="inline">leads</code> collection is new — it's written by <code class="inline">app.html</code> the moment a student taps "Unlock All" (before they've paid), so you can follow up with anyone who showed interest but didn't buy. A student can only create/update their own lead doc (checked against <code class="inline">request.resource.data.uid</code>); only the admin account can read the list. If you already pasted an older version of these rules into Firebase Console, re-paste this one or the 🎯 Leads section in the Users tab will show a permission error.</p>
       </div>
       <div class="step">
         <h3>4️⃣ Build content — one test at a time, or in bulk</h3>
@@ -579,9 +616,22 @@ EXPLAIN: Keyboard is used to input data."></textarea>
   <div class="panel" id="tab-users">
     <div class="card">
       <h2>👥 Users & Activity</h2>
-      <p style="color:var(--muted);font-size:13px">Registered students, purchases, test attempts, and leaderboard standings — pulled live from Firestore. Needs the updated security rules (admin read on <code class="inline">attempts</code>) — see the 🔥 Firebase Setup tab and re-paste your rules if you haven't already.</p>
+      <p style="color:var(--muted);font-size:13px">Registered students, purchases, test attempts, and leaderboard standings — pulled live from Firestore. Needs the updated security rules (admin read on <code class="inline">attempts</code>, <code class="inline">leads</code>) — see the 🔥 Firebase Setup tab and re-paste your rules if you haven't already.</p>
       <div style="margin:12px 0"><button class="btn" id="btn-load-users" onclick="loadUsersData()">🔄 Load Users & Activity</button></div>
       <div id="users-overview-stats"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <h3 style="margin:0">🎯 Leads</h3>
+        <span id="leads-count-label" style="font-size:12px;color:var(--muted)"></span>
+      </div>
+      <p style="color:var(--muted);font-size:12px;margin-top:4px">Everyone who tapped "Unlock All" on a test — call or WhatsApp them before they lose interest. Logged the moment they click, whether or not they paid.</p>
+      <div class="lead-filters">
+        <button class="lead-chip active" data-filter="open" onclick="setLeadFilter('open')">🔥 Not Converted</button>
+        <button class="lead-chip" data-filter="converted" onclick="setLeadFilter('converted')">✅ Converted</button>
+        <button class="lead-chip" data-filter="all" onclick="setLeadFilter('all')">All</button>
+      </div>
+      <div id="leads-cards"></div>
     </div>
     <div class="card">
       <h3 style="margin-top:0">🙋 Per-User Summary</h3>
@@ -777,8 +827,9 @@ const ADMIN_EMAIL = "subhamdahiya18@gmail.com";
 
 let db;
 let _allTests = [], _allConfig = [], _allQuestions = [], _allExams = [];
-let _allUsers = [], _allPurchases = [], _allAttempts = [], _allLeaderboard = [];
+let _allUsers = [], _allPurchases = [], _allAttempts = [], _allLeaderboard = [], _allLeads = [];
 let _usersDataLoaded = false;
+let _leadsFilter = "open";
 let _previewTestId = null, _previewSecId = null, _previewQno = null;
 let _editingQ = false;
 
@@ -1728,7 +1779,8 @@ async function loadUsersData() {
       ["users",      () => db.collection("users").get()],
       ["purchases",  () => db.collection("purchases").get()],
       ["attempts",   () => db.collectionGroup("attempts").get()],
-      ["leaderboard",() => db.collectionGroup("entries").get()]
+      ["leaderboard",() => db.collectionGroup("entries").get()],
+      ["leads",      () => db.collection("leads").get()]
     ];
     const results = await Promise.allSettled(labeled.map(([,fn]) => fn()));
     const failed = results
@@ -1738,14 +1790,16 @@ async function loadUsersData() {
       const msg = failed.map(f => `${f.name}: ${f.r.reason.message}`).join(" | ");
       throw new Error(msg);
     }
-    const [usersSnap, purchasesSnap, attemptsSnap, lbSnap] = results.map(r => r.value);
+    const [usersSnap, purchasesSnap, attemptsSnap, lbSnap, leadsSnap] = results.map(r => r.value);
     _allUsers = usersSnap.docs.map(d => ({ ...d.data(), uid: d.id }));
     _allPurchases = purchasesSnap.docs.map(d => ({ purchase_doc_id: d.id, ...d.data() }));
     _allAttempts = attemptsSnap.docs.map(d => ({ ...d.data(), attempt_id: d.id, uid: d.ref.parent.parent.id }));
     _allLeaderboard = lbSnap.docs.map(d => ({ ...d.data(), test_id: d.ref.parent.parent.id, uid: d.id }));
+    _allLeads = leadsSnap.docs.map(d => ({ ...d.data(), lead_id: d.id }));
     _usersDataLoaded = true;
     renderUsersOverview();
-    toast(`✅ Loaded ${_allUsers.length} users, ${_allAttempts.length} attempts`);
+    renderLeadsCards();
+    toast(`✅ Loaded ${_allUsers.length} users, ${_allAttempts.length} attempts, ${_allLeads.length} leads`);
   } catch(e) {
     toast("❌ Load failed: " + e.message, true);
   } finally {
@@ -1754,8 +1808,10 @@ async function loadUsersData() {
 }
 function renderUsersOverview() {
   const totalRevenue = _allPurchases.reduce((s,p) => s + (Number(p.amount_inr) || 0), 0);
+  const openLeads = _allLeads.filter(l => !l.converted).length;
   const stats = [
     ["Registered Users", _allUsers.length, "var(--blue-d)"],
+    ["🔥 Open Leads", openLeads, "var(--red)"],
     ["Bundle Purchases", _allPurchases.length, "var(--green-d)"],
     ["Total Revenue", "₹" + totalRevenue.toLocaleString("en-IN"), "var(--orange)"],
     ["Test Attempts", _allAttempts.length, "var(--blue)"],
@@ -1850,6 +1906,50 @@ function renderUsersOverview() {
       __sort_when: ts ? ts.getTime() : 0
     };
   }), "leaderboard");
+}
+
+/* ───── Leads (clicked "Unlock All", may not have paid) ───── */
+function setLeadFilter(f) {
+  _leadsFilter = f;
+  renderLeadsCards();
+}
+function waLinkFor(phone) {
+  const digits = String(phone || "").replace(/[^\d]/g, "");
+  if (!digits) return "";
+  const withCC = digits.length === 10 ? "91" + digits : digits;
+  return "https://wa.me/" + withCC;
+}
+function renderLeadsCards() {
+  const el = document.getElementById("leads-cards");
+  const countEl = document.getElementById("leads-count-label");
+  if (!el) return;
+  document.querySelectorAll(".lead-chip").forEach(b => b.classList.toggle("active", b.dataset.filter === _leadsFilter));
+  let rows = _allLeads.slice();
+  if (_leadsFilter === "open") rows = rows.filter(l => !l.converted);
+  else if (_leadsFilter === "converted") rows = rows.filter(l => l.converted);
+  rows.sort((a,b) => (toJsDate(b.last_clicked_at)?.getTime() || 0) - (toJsDate(a.last_clicked_at)?.getTime() || 0));
+  if (countEl) countEl.textContent = `${rows.length} lead${rows.length === 1 ? "" : "s"}`;
+  if (!rows.length) { el.innerHTML = "<p style='color:var(--muted);font-size:13px;padding:8px 0'>No leads in this view yet.</p>"; return; }
+  el.innerHTML = rows.map(l => {
+    const clickedAt = toJsDate(l.last_clicked_at);
+    const clickedStr = clickedAt ? clickedAt.toLocaleString("en-IN") : "—";
+    const phoneDigits = String(l.phone || "").replace(/[^\d+]/g, "");
+    const wa = waLinkFor(l.phone);
+    return `<div class="lead-card ${l.converted ? "lc-won" : "lc-open"}">
+      <div class="lc-top">
+        <div class="lc-name">${escHTML(l.name || "Unnamed Student")}</div>
+        <span class="lc-badge ${l.converted ? "won" : ""}">${l.converted ? "✅ Converted" : "🔥 Lead"}</span>
+      </div>
+      <div class="lc-exam">${escHTML(l.exam_name || l.exam_id || "—")}</div>
+      <div class="lc-sub">₹${l.price_inr ?? "—"} bundle · clicked ${l.click_count || 1}× · last: ${clickedStr}</div>
+      <div class="lc-actions">
+        ${phoneDigits ? `<a class="lc-btn call" href="tel:${escAttr(phoneDigits)}">📞 Call</a>` : ""}
+        ${wa ? `<a class="lc-btn wa" href="${escAttr(wa)}" target="_blank" rel="noopener">💬 WhatsApp</a>` : ""}
+        ${l.email ? `<a class="lc-btn mail" href="mailto:${escAttr(l.email)}">✉️ Email</a>` : ""}
+        ${!phoneDigits && !l.email ? `<span style="font-size:12px;color:var(--muted)">No contact info saved</span>` : ""}
+      </div>
+    </div>`;
+  }).join("");
 }
 
 /* ───── View Data ────────────────────────────── */
