@@ -9,6 +9,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   *{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
@@ -196,12 +199,12 @@ a{color:var(--c-blue)}
 .q-area.no-passage .q-passage{display:none}
 .q-area.no-passage .q-pane{width:100%}
 .q-passage-title{font-weight:700;color:var(--c-blue-dark);font-size:13px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--c-line);padding-bottom:6px}
-.q-passage-text{font-family:var(--serif);font-size:15px;line-height:1.75;color:#222;white-space:pre-wrap}
+.q-passage-text{font-family:var(--serif);font-size:calc(15px * var(--t1-fit-scale,100%) / 100);line-height:1.75;color:#222;white-space:pre-wrap}
 .q-passage-img{max-width:100%;height:auto;display:block;margin:0 0 14px;border:1px solid var(--c-line);border-radius:4px}
 .q-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--c-line);padding-bottom:8px;margin-bottom:14px}
 .q-num{font-size:14px;font-weight:600;color:var(--c-blue-dark)}
 .q-meta{font-size:11px;color:var(--c-muted)}
-.q-text{font-family:var(--serif);font-size:16px;line-height:1.7;color:#1a1a1a;margin-bottom:18px;white-space:pre-wrap}
+.q-text{font-family:var(--serif);font-size:calc(16px * var(--t1-fit-scale,100%) / 100);line-height:1.7;color:#1a1a1a;margin-bottom:18px;white-space:pre-wrap}
 .q-img{max-width:100%;height:auto;display:block;margin:0 0 14px;border:1px solid var(--c-line);border-radius:4px}
 .q-options{display:flex;flex-direction:column;gap:10px}
 .q-opt{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--c-line);border-radius:4px;cursor:pointer;background:#fff;transition:background .12s,border-color .12s}
@@ -209,7 +212,8 @@ a{color:var(--c-blue)}
 .q-opt.selected{background:#e8f4fd;border-color:var(--c-blue)}
 .q-opt input{margin-top:3px;flex-shrink:0;cursor:pointer}
 .q-opt .opt-letter{font-weight:700;color:var(--c-blue-dark);min-width:22px}
-.q-opt .opt-text{flex:1;font-family:var(--serif);font-size:15px;line-height:1.6;color:#222;white-space:pre-wrap}
+.q-opt .opt-text{flex:1;font-family:var(--serif);font-size:calc(15px * var(--t1-fit-scale,100%) / 100);line-height:1.6;color:#222;white-space:pre-wrap}
+.fs-toggle-btn.t1-off{background:rgba(255,255,255,.05);opacity:.55}
 
 /* DESCRIPTIVE QUESTION UI */
 .q-descriptive{display:flex;flex-direction:column;gap:14px}
@@ -504,6 +508,7 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
   <div class="top-ribbon">
     <div class="brand">🏦 Target1st</div>
     <div class="right">
+      <button class="ribbon-btn" id="ins-lang-toggle" style="display:none" onclick="T1X.setLang(T1X.getLang()==='hi'?'en':'hi'); renderInstructionScreen();">EN</button>
       <button class="ribbon-btn" onclick="goTests()">← Back to Tests</button>
       <button class="ribbon-btn ghost" onclick="doLogout()">Sign Out</button>
     </div>
@@ -565,6 +570,8 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
     </div>
     <div class="tb-center" id="tb-exam-title">Mock Test</div>
     <div class="tb-right">
+      <button class="fs-toggle-btn" id="btn-lang-toggle" title="Switch language" type="button" style="display:none;font-size:12px;font-weight:700;width:auto;padding:0 9px">EN</button>
+      <button class="fs-toggle-btn" id="btn-fit-toggle" title="Toggle auto-fit text size" type="button">🔍</button>
       <button class="fs-toggle-btn" id="btn-fs-toggle" title="Toggle fullscreen" type="button">⛶</button>
       <div class="tb-timer" id="tb-timer"><span class="lbl">TIME LEFT</span><span id="tb-timer-val">00:00</span></div>
     </div>
@@ -800,6 +807,82 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
             tests.exam_id links a test to its bundle in "exams".
             tests.is_demo="yes" marks the one always-free mock.
 ===================================================================== */
+
+/* ---- 0. T1X: LaTeX rendering + EN/HI bilingual text + font auto-fit ----
+   Authoring convention: to give a field two languages, write English and
+   Hindi separated by a single " / ", in either order — e.g.
+   "What is 35% of 100? / 100 का 35% क्या है?" or "पैंतालीस / 45".
+   T1X auto-detects which side is Devanagari, so order doesn't matter, and
+   it ignores slashes that aren't a language split (dates, fractions like
+   3/4, etc.) because it only splits where exactly one side contains
+   Devanagari script. Math: wrap in $...$ (inline) or $$...$$ (block),
+   rendered with KaTeX — this is plain client-side text formatting on data
+   you already fetched, it does not add any extra Firestore reads. ---- */
+const T1X = (function(){
+  const DEV = /[\u0900-\u097F]/;
+  let lang = localStorage.getItem("t1_lang") || "en";
+
+  function split(text){
+    const s = String(text ?? "");
+    if (!DEV.test(s) || s.indexOf("/") === -1) return { en:s, hi:s, dual:false };
+    let best=-1, bestScore=-1, hiIsLeft=false;
+    for (let i=0;i<s.length;i++){
+      if (s[i] !== "/") continue;
+      const left=s.slice(0,i), right=s.slice(i+1);
+      const lDev=DEV.test(left), rDev=DEV.test(right);
+      if (lDev === rDev) continue; // both or neither Devanagari -> not a language split (e.g. 3/4, dates)
+      const lt=left.trim(), rt=right.trim();
+      if (!lt || !rt) continue;
+      const score = Math.min(lt.length, rt.length);
+      if (score > bestScore){ bestScore=score; best=i; hiIsLeft=lDev; }
+    }
+    if (best < 0) return { en:s, hi:s, dual:false };
+    const left=s.slice(0,best).trim(), right=s.slice(best+1).trim();
+    return hiIsLeft ? { hi:left, en:right, dual:true } : { en:left, hi:right, dual:true };
+  }
+  function pick(text){ const p=split(text); return (lang==="hi" ? p.hi : p.en) || p.en || p.hi || ""; }
+  function isDual(text){ return split(text).dual; }
+  function setLang(l){ lang=l; localStorage.setItem("t1_lang", l); }
+  function getLang(){ return lang; }
+
+  function renderMath(el){
+    if (!el || typeof window.renderMathInElement !== "function") return;
+    try{
+      window.renderMathInElement(el, {
+        delimiters: [
+          {left:"$$", right:"$$", display:true},
+          {left:"\\[", right:"\\]", display:true},
+          {left:"$", right:"$", display:false},
+          {left:"\\(", right:"\\)", display:false}
+        ],
+        throwOnError:false
+      });
+    } catch(e){}
+  }
+
+  // ---- Font auto-fit: shrinks a container's font-size (via CSS var) until
+  // its content fits the available height, without scrolling. ----
+  let fitOn = localStorage.getItem("t1_fit") !== "off"; // default ON
+  function fitIsOn(){ return fitOn; }
+  function setFit(on){ fitOn=on; localStorage.setItem("t1_fit", on?"on":"off"); }
+  function autoFit(container, opts){
+    if (!container) return;
+    const o = opts || {};
+    const min = o.min || 12, max = o.max || 100, step = o.step || 2;
+    container.style.setProperty("--t1-fit-scale", max + "%");
+    if (!fitOn) return;
+    let size = max;
+    const maxHeight = o.maxHeight || container.clientHeight || container.parentElement.clientHeight;
+    let guard = 0;
+    while (size > min && container.scrollHeight > maxHeight && guard < 50){
+      size -= step;
+      container.style.setProperty("--t1-fit-scale", size + "%");
+      guard++;
+    }
+  }
+
+  return { split, pick, isDual, setLang, getLang, renderMath, fitIsOn, setFit, autoFit };
+})();
 
 /* ---- 1. FIREBASE CONFIG ---- */
 const firebaseConfig = {
@@ -1341,6 +1424,11 @@ async function loadTest(testId){
 }
 
 function renderInstructionScreen(){
+  const allQs=Object.values(state.questionsBySection||{}).flat();
+  const dual=allQs.some(q=>T1X.isDual(q.question_text||"")||T1X.isDual(q.passage_text||"")||T1X.isDual(q.explanation||"")||["A","B","C","D","E"].some(L=>T1X.isDual((q.options&&q.options[L])||"")));
+  const langBtn=$("#ins-lang-toggle");
+  langBtn.style.display=dual?"inline-block":"none";
+  langBtn.textContent=T1X.getLang()==="hi"?"हिं":"EN";
   $("#ins-exam-title").textContent=state.examName;
   const totalMin=state.sections.reduce((acc,x)=>acc+x.time_minutes,0);
   const totalQ=state.sections.reduce((acc,x)=>acc+(state.questionsBySection[x.section_id]?.length||0),0);
@@ -1464,18 +1552,19 @@ function renderCurrentQuestion(){
     const existing=(state.answers[q.qid]||"");
     const wc=countWords(existing);
     const typeLabel=q.descriptive_type==="letter"?"✉ Letter Writing":q.descriptive_type==="paragraph"?"📄 Paragraph Writing":"📝 Essay Writing";
-    const hintsHtml=q.descriptive_key_points?`<details class="q-desc-hint"><summary>💡 Hints — Key Points to Cover</summary><div class="q-desc-hint-body">${escHTML(q.descriptive_key_points)}</div></details>`:"";
-    const openingHtml=q.descriptive_opening?`<details class="q-desc-hint"><summary>✍ Sample Opening Line</summary><div class="q-desc-hint-body">${escHTML(q.descriptive_opening)}</div></details>`:"";
+    const hintsHtml=q.descriptive_key_points?`<details class="q-desc-hint"><summary>💡 Hints — Key Points to Cover</summary><div class="q-desc-hint-body">${escHTML(T1X.pick(q.descriptive_key_points))}</div></details>`:"";
+    const openingHtml=q.descriptive_opening?`<details class="q-desc-hint"><summary>✍ Sample Opening Line</summary><div class="q-desc-hint-body">${escHTML(T1X.pick(q.descriptive_opening))}</div></details>`:"";
     const wcCls=wc>wl?"over":wc>wl*0.9?"near":"";
     $("#q-options").innerHTML=`
       <div class="q-descriptive">
         <span class="q-desc-type-tag">${typeLabel}</span>
-        <div class="q-text" style="margin-bottom:6px">${escHTML(q.question_text)}</div>
+        <div class="q-text" style="margin-bottom:6px">${escHTML(T1X.pick(q.question_text))}</div>
         <div class="q-desc-limit">Write approximately ${wl} words</div>
         ${hintsHtml}${openingHtml}
         <textarea class="q-desc-textarea" id="desc-ta-${q.qid}" placeholder="Write your answer here… Type freely, spelling errors won't affect marks." spellcheck="true">${escHTML(existing)}</textarea>
         <div class="q-desc-wc ${wcCls}" id="desc-wc-${q.qid}">${wc} / ${wl} words</div>
       </div>`;
+    T1X.renderMath($("#q-options"));
     const ta=document.getElementById("desc-ta-"+q.qid);
     const wcEl=document.getElementById("desc-wc-"+q.qid);
     if(ta){ ta.addEventListener("input",()=>{
@@ -1487,20 +1576,30 @@ function renderCurrentQuestion(){
     }); }
   } else {
     const hasPassage=q.type==="group"&&(q.passage_text.trim()||q.passage_image_url);
-    if(hasPassage){ area.classList.remove("no-passage"); $("#q-passage-title").textContent=q.group_title||"Passage"; $("#q-passage-text").innerHTML=escHTML(q.passage_text); $("#q-passage-img-wrap").innerHTML=q.passage_image_url?`<img class="q-passage-img" src="${escHTML(convertDriveUrl(q.passage_image_url))}" alt="passage" referrerpolicy="no-referrer" onerror="this.style.display='none'"/>` :""; }
+    if(hasPassage){ area.classList.remove("no-passage"); $("#q-passage-title").textContent=q.group_title||"Passage"; $("#q-passage-text").innerHTML=escHTML(T1X.pick(q.passage_text)); $("#q-passage-img-wrap").innerHTML=q.passage_image_url?`<img class="q-passage-img" src="${escHTML(convertDriveUrl(q.passage_image_url))}" alt="passage" referrerpolicy="no-referrer" onerror="this.style.display='none'"/>` :""; T1X.renderMath($("#q-passage-text")); }
     else { area.classList.add("no-passage"); }
     $("#q-num").textContent=`Question No. ${state.currentQIdx+1}`;
     $("#q-meta").textContent=`Marks: +${sec.marks_correct} / -${sec.marks_negative}`;
     $("#q-img-wrap").innerHTML=q.question_image_url?`<img class="q-img" src="${escHTML(convertDriveUrl(q.question_image_url))}" alt="question" referrerpolicy="no-referrer" onerror="this.style.display='none'"/>`:"";
-    $("#q-text").innerHTML=escHTML(q.question_text);
+    $("#q-text").innerHTML=escHTML(T1X.pick(q.question_text));
+    T1X.renderMath($("#q-text"));
     const chosen=state.answers[q.qid];
     $("#q-options").innerHTML=["A","B","C","D","E"].filter(L=>(q.options[L]||"").trim().length>0).map(L=>{
       const sel=chosen===L?" selected":""; const checked=chosen===L?" checked":"";
-      return `<label class="q-opt${sel}" data-letter="${L}"><input type="radio" name="opt" value="${L}"${checked}/><span class="opt-letter">${L}.</span><span class="opt-text">${escHTML(q.options[L])}</span></label>`;
+      return `<label class="q-opt${sel}" data-letter="${L}"><input type="radio" name="opt" value="${L}"${checked}/><span class="opt-letter">${L}.</span><span class="opt-text">${escHTML(T1X.pick(q.options[L]))}</span></label>`;
     }).join("")||"<p style='color:#a00'>(No options provided)</p>";
+    T1X.renderMath($("#q-options"));
     $$("#q-options .q-opt").forEach(el=>{ el.addEventListener("click",()=>{ const L=el.dataset.letter; state.answers[q.qid]=L; $$("#q-options .q-opt").forEach(o=>o.classList.remove("selected")); el.classList.add("selected"); const radio=el.querySelector("input"); if(radio) radio.checked=true; saveState(); }); });
   }
+  updateLangToggleVisibility(qs);
+  requestAnimationFrame(()=>T1X.autoFit($("#q-area"),{maxHeight:$("#q-area").parentElement.clientHeight}));
   renderPalette(); saveState();
+}
+function updateLangToggleVisibility(qs){
+  const btn=$("#btn-lang-toggle"); if(!btn) return;
+  const dual=(qs||[]).some(q=>T1X.isDual(q.question_text)||["A","B","C","D","E"].some(L=>T1X.isDual((q.options&&q.options[L])||""))||T1X.isDual(q.passage_text||"")||T1X.isDual(q.explanation||""));
+  btn.style.display=dual?"flex":"none";
+  btn.textContent=T1X.getLang()==="hi"?"हिं":"EN";
 }
 
 /* ---- Timer ---- */
@@ -1724,16 +1823,18 @@ function renderReview(){
   $("#review-head").textContent=`${sec.section_name} — Question ${idx+1} of ${qs.length}`;
   if(q.type==="descriptive"){
     const typedAnswer=state.answers[q.qid]||""; const wc=countWords(typedAnswer);
-    $("#review-body").innerHTML=`<div class="rev-q"><div class="rq-head">Question ${idx+1} • Time spent: ${Math.round(state.timeSpent[q.qid]||0)}s</div><span class="rq-desc-badge">📝 Descriptive — Evaluated Manually</span><div class="rq-text" style="margin-top:8px">${escHTML(q.question_text)}</div><div style="font-size:12px;color:var(--c-blue);font-weight:600;margin-bottom:8px">Word Limit: ~${q.descriptive_word_limit} words</div><div style="font-size:12px;font-weight:700;color:var(--c-blue-dark);margin-bottom:4px">Your Answer (${wc} words):</div><div class="rq-desc-answer">${typedAnswer?escHTML(typedAnswer):`<span style="color:#999;font-style:italic">Not written</span>`}</div>${q.descriptive_key_points?`<div class="rq-expl"><b>Key Points to Cover:</b><br/>${escHTML(q.descriptive_key_points)}</div>`:""}${q.descriptive_opening?`<div class="rq-expl" style="background:#e8f4fd;border-color:var(--c-blue)"><b>Sample Opening:</b><br/>${escHTML(q.descriptive_opening)}</div>`:""}</div>`;
+    $("#review-body").innerHTML=`<div class="rev-q"><div class="rq-head">Question ${idx+1} • Time spent: ${Math.round(state.timeSpent[q.qid]||0)}s</div><span class="rq-desc-badge">📝 Descriptive — Evaluated Manually</span><div class="rq-text" style="margin-top:8px">${escHTML(T1X.pick(q.question_text))}</div><div style="font-size:12px;color:var(--c-blue);font-weight:600;margin-bottom:8px">Word Limit: ~${q.descriptive_word_limit} words</div><div style="font-size:12px;font-weight:700;color:var(--c-blue-dark);margin-bottom:4px">Your Answer (${wc} words):</div><div class="rq-desc-answer">${typedAnswer?escHTML(typedAnswer):`<span style="color:#999;font-style:italic">Not written</span>`}</div>${q.descriptive_key_points?`<div class="rq-expl"><b>Key Points to Cover:</b><br/>${escHTML(T1X.pick(q.descriptive_key_points))}</div>`:""}${q.descriptive_opening?`<div class="rq-expl" style="background:#e8f4fd;border-color:var(--c-blue)"><b>Sample Opening:</b><br/>${escHTML(T1X.pick(q.descriptive_opening))}</div>`:""}</div>`;
+    T1X.renderMath($("#review-body"));
     return;
   }
   const chosen=state.answers[q.qid];
   let passageHtml="";
-  if(q.type==="group"&&(q.passage_text.trim()||q.passage_image_url)) passageHtml=`<div class="rq-passage">${q.passage_image_url?`<img src="${escHTML(convertDriveUrl(q.passage_image_url))}" referrerpolicy="no-referrer" onerror="this.style.display='none'" style="max-width:100%;margin-bottom:8px"/>`:""} ${escHTML(q.passage_text)}</div>`;
-  const optsHtml=["A","B","C","D","E"].filter(L=>(q.options[L]||"").trim().length>0).map(L=>{ let cls="rq-opt"; let tag=""; if(L===q.correct){ cls+=" correct"; tag=`<span class="tag">Correct</span>`; } if(chosen===L&&chosen!==q.correct){ cls+=" chosen-wrong"; tag=`<span class="tag">Your answer</span>`; } else if(chosen===L&&chosen===q.correct) tag=`<span class="tag">Your answer</span>`; return `<div class="${cls}"><b style="min-width:22px">${L}.</b><span style="flex:1">${escHTML(q.options[L])}</span>${tag}</div>`; }).join("");
+  if(q.type==="group"&&(q.passage_text.trim()||q.passage_image_url)) passageHtml=`<div class="rq-passage">${q.passage_image_url?`<img src="${escHTML(convertDriveUrl(q.passage_image_url))}" referrerpolicy="no-referrer" onerror="this.style.display='none'" style="max-width:100%;margin-bottom:8px"/>`:""} ${escHTML(T1X.pick(q.passage_text))}</div>`;
+  const optsHtml=["A","B","C","D","E"].filter(L=>(q.options[L]||"").trim().length>0).map(L=>{ let cls="rq-opt"; let tag=""; if(L===q.correct){ cls+=" correct"; tag=`<span class="tag">Correct</span>`; } if(chosen===L&&chosen!==q.correct){ cls+=" chosen-wrong"; tag=`<span class="tag">Your answer</span>`; } else if(chosen===L&&chosen===q.correct) tag=`<span class="tag">Your answer</span>`; return `<div class="${cls}"><b style="min-width:22px">${L}.</b><span style="flex:1">${escHTML(T1X.pick(q.options[L]))}</span>${tag}</div>`; }).join("");
   const status=!chosen?`<span style='color:#888'>Not Attempted</span>`:(chosen===q.correct?`<span style='color:#1d8a4a;font-weight:600'>Correct (+${sec.marks_correct})</span>`:`<span style='color:#a93226;font-weight:600'>Wrong (-${sec.marks_negative})</span>`);
   $("#review-body").innerHTML=`<div class="rev-q"><div class="rq-head">Question ${idx+1} • Time spent: ${Math.round(state.timeSpent[q.qid]||0)}s • ${status}</div>${passageHtml}${q.question_image_url?`<img src="${escHTML(convertDriveUrl(q.question_image_url))}" referrerpolicy="no-referrer" onerror="this.style.display='none'" style="max-width:100%;margin-bottom:10px;border:1px solid #ddd;border-radius:4px"/>`:""}
-    <div class="rq-text">${escHTML(q.question_text)}</div>${optsHtml}${q.explanation?`<div class="rq-expl"><b>Explanation:</b><br/>${escHTML(q.explanation)}</div>`:""}</div>`;
+    <div class="rq-text">${escHTML(T1X.pick(q.question_text))}</div>${optsHtml}${q.explanation?`<div class="rq-expl"><b>Explanation:</b><br/>${escHTML(T1X.pick(q.explanation))}</div>`:""}</div>`;
+  T1X.renderMath($("#review-body"));
 }
 
 /* ===================== STATE PERSISTENCE ===================== */
@@ -1752,6 +1853,10 @@ function bindGlobalEvents(){
   $("#ssub-cancel").addEventListener("click",()=>hideModal("modal-section-submit"));
   $("#swsec-cancel").addEventListener("click",()=>hideModal("modal-switch-section"));
   $("#btn-fs-toggle").addEventListener("click",()=>{ const isFS=!!(document.fullscreenElement||document.webkitFullscreenElement); if(isFS) exitFullscreenLandscape(); else enterFullscreenLandscape(); });
+  $("#btn-fit-toggle").classList.toggle("t1-off",!T1X.fitIsOn());
+  $("#btn-fit-toggle").addEventListener("click",()=>{ const on=!T1X.fitIsOn(); T1X.setFit(on); $("#btn-fit-toggle").classList.toggle("t1-off",!on); requestAnimationFrame(()=>T1X.autoFit($("#q-area"),{maxHeight:$("#q-area").parentElement.clientHeight})); });
+  $("#btn-lang-toggle").addEventListener("click",()=>{ T1X.setLang(T1X.getLang()==="hi"?"en":"hi"); renderCurrentQuestion(); });
+  window.addEventListener("resize",()=>{ if($("#screen-exam").classList.contains("active")) requestAnimationFrame(()=>T1X.autoFit($("#q-area"),{maxHeight:$("#q-area").parentElement.clientHeight})); });
   $("#ssub-confirm").addEventListener("click",()=>{
     hideModal("modal-section-submit");
     const sid=state.currentSectionId;

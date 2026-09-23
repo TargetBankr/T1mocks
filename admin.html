@@ -9,6 +9,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
 <style>
   *{-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;}
 
@@ -134,11 +137,23 @@
   .tcard .actions .btn{flex:1;min-width:90px;padding:7px 10px;font-size:11px;justify-content:center}
 
   /* ---- DATA TABLE ---- */
-  .data-table{width:100%;border-collapse:collapse;font-size:12px}
-  .data-table th,.data-table td{padding:6px 8px;border:1px solid var(--line);text-align:left;vertical-align:top}
-  .data-table th{background:#eef2f7;color:var(--blue-d);font-weight:700;position:sticky;top:0}
-  .data-table th.sortable-th:hover{background:#dfe7f0}
-  .data-table td{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .data-table-wrap{overflow:auto;max-height:440px;margin-bottom:16px;border:1px solid var(--line);border-radius:8px}
+  .data-table{width:100%;border-collapse:collapse;font-size:12.5px}
+  .data-table th,.data-table td{padding:9px 12px;border-bottom:1px solid #eef1f5;text-align:left;vertical-align:top}
+  .data-table th{background:var(--blue-l);color:var(--blue-d);font-weight:700;position:sticky;top:0;z-index:1;user-select:none;white-space:nowrap}
+  .data-table th.sortable-th{cursor:pointer}
+  .data-table th.sortable-th:hover{background:#dbe6f3}
+  .data-table td{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+  .data-table tbody tr:nth-child(even){background:#fafbfd}
+  .data-table tbody tr:hover{background:var(--blue-l)}
+  .data-table tbody tr:hover td{overflow:visible;white-space:normal;word-break:break-word}
+
+  /* ---- STAT GRID (overview cards) ---- */
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px}
+  .stat-box{background:#fff;border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:8px;padding:14px;text-align:center;transition:transform .12s,box-shadow .12s}
+  .stat-box:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.08)}
+  .stat-box .val{font-size:22px;font-weight:800}
+  .stat-box .lbl{font-size:11px;color:var(--muted);margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
 
   /* ---- MODAL ---- */
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:150;padding:20px}
@@ -861,6 +876,7 @@ EXPLAIN: Keyboard is used to input data."></textarea>
       <span id="pv-test-name" style="font-weight:400">—</span>
     </div>
     <div>
+      <button id="pv-lang-toggle" style="display:none" onclick="togglePreviewLang()">EN</button>
       <button onclick="closePreview()">✕ Close Preview</button>
     </div>
   </div>
@@ -895,6 +911,51 @@ EXPLAIN: Keyboard is used to input data."></textarea>
       using that account's UID.
    4. Build Exams (bundles) → Tests → Sections → Questions, in order.
    ===================================================================== */
+
+/* ---- T1X: LaTeX + EN/HI bilingual preview, mirrors app.html's engine ----
+   Keep this block identical to the T1X block in app.html so Preview Mode
+   shows exactly what students will see. See app.html for full comments. */
+const T1X = (function(){
+  const DEV = /[\u0900-\u097F]/;
+  let lang = localStorage.getItem("t1_lang_admin") || "en";
+  function split(text){
+    const s = String(text ?? "");
+    if (!DEV.test(s) || s.indexOf("/") === -1) return { en:s, hi:s, dual:false };
+    let best=-1, bestScore=-1, hiIsLeft=false;
+    for (let i=0;i<s.length;i++){
+      if (s[i] !== "/") continue;
+      const left=s.slice(0,i), right=s.slice(i+1);
+      const lDev=DEV.test(left), rDev=DEV.test(right);
+      if (lDev === rDev) continue;
+      const lt=left.trim(), rt=right.trim();
+      if (!lt || !rt) continue;
+      const score = Math.min(lt.length, rt.length);
+      if (score > bestScore){ bestScore=score; best=i; hiIsLeft=lDev; }
+    }
+    if (best < 0) return { en:s, hi:s, dual:false };
+    const left=s.slice(0,best).trim(), right=s.slice(best+1).trim();
+    return hiIsLeft ? { hi:left, en:right, dual:true } : { en:left, hi:right, dual:true };
+  }
+  function pick(text){ const p=split(text); return (lang==="hi" ? p.hi : p.en) || p.en || p.hi || ""; }
+  function isDual(text){ return split(text).dual; }
+  function setLang(l){ lang=l; localStorage.setItem("t1_lang_admin", l); }
+  function getLang(){ return lang; }
+  function renderMath(el){
+    if (!el || typeof window.renderMathInElement !== "function") return;
+    try{
+      window.renderMathInElement(el, {
+        delimiters: [
+          {left:"$$", right:"$$", display:true},
+          {left:"\\[", right:"\\]", display:true},
+          {left:"$", right:"$", display:false},
+          {left:"\\(", right:"\\)", display:false}
+        ],
+        throwOnError:false
+      });
+    } catch(e){}
+  }
+  return { split, pick, isDual, setLang, getLang, renderMath };
+})();
 
 /* ---- FIREBASE CONFIG — must match app.html and index.html exactly ---- */
 const firebaseConfig = {
@@ -1814,16 +1875,16 @@ function renderPreviewQuestion() {
     <div class="pv-q-meta">Question ${idx+1} of ${qs.length} (Q.No ${escHTML(q.qno)}) ${q.type?`· Type: ${escHTML(q.type)}`:""} ${q.group_id?`· Group: ${escHTML(q.group_id)}`:""}</div>
     ${hasPassage ? `<div class="pv-passage">
       ${q.passage_image_url ? `<img class="pv-img" src="${escAttr(convertDriveUrl(q.passage_image_url))}" alt="passage" referrerpolicy="no-referrer" onerror="this.style.display='none'"/>` : ""}
-      ${escHTML(q.passage_text)}
+      ${escHTML(T1X.pick(q.passage_text))}
     </div>` : ""}
     ${q.question_image_url ? `<img class="pv-img" src="${escAttr(convertDriveUrl(q.question_image_url))}" alt="question" referrerpolicy="no-referrer" onerror="this.style.display='none'"/>` : ""}
-    <div class="pv-q-text">${escHTML(q.question_text)}</div>
+    <div class="pv-q-text">${escHTML(T1X.pick(q.question_text))}</div>
     ${["a","b","c","d","e"].filter(L => (q["option_"+L]||"").trim().length > 0).map(L => {
       const Lup = L.toUpperCase();
       const correct = (q.correct||"").toUpperCase().charAt(0) === Lup;
       return `<div class="pv-opt ${correct?"correct":""}">
         <span class="pv-opt-letter">${Lup}.</span>
-        <span style="flex:1">${escHTML(q["option_"+L])}</span>
+        <span style="flex:1">${escHTML(T1X.pick(q["option_"+L]))}</span>
         ${correct ? '<span class="pv-opt-tag">Correct</span>' : ""}
       </div>`;
     }).join("")}
@@ -1831,7 +1892,7 @@ function renderPreviewQuestion() {
       <div style="background:#fff8e1;border-left:3px solid var(--orange);padding:10px 12px;margin-top:12px;border-radius:0 4px 4px 0">
         <b style="color:#a26200">Explanation:</b><br/>
         ${q.explanation_image_url ? `<img class="pv-img" src="${escAttr(convertDriveUrl(q.explanation_image_url))}" referrerpolicy="no-referrer" onerror="this.style.display='none'"/>` : ""}
-        <span style="white-space:pre-wrap">${escHTML(q.explanation||"")}</span>
+        <span style="white-space:pre-wrap">${escHTML(T1X.pick(q.explanation||""))}</span>
       </div>` : ""}
     <div class="pv-q-foot">
       <div>
@@ -1843,7 +1904,12 @@ function renderPreviewQuestion() {
         <button class="btn red sm" onclick="deleteCurrentQuestion()">🗑 Delete</button>
       </div>
     </div>`;
+  T1X.renderMath(card);
+  const dual = qs.some(qq => T1X.isDual(qq.question_text) || T1X.isDual(qq.passage_text||"") || T1X.isDual(qq.explanation||"") || ["a","b","c","d","e"].some(L=>T1X.isDual(qq["option_"+L]||"")));
+  const langBtn = document.getElementById("pv-lang-toggle");
+  if (langBtn){ langBtn.style.display = dual ? "inline-block" : "none"; langBtn.textContent = T1X.getLang()==="hi" ? "हिं" : "EN"; }
 }
+function togglePreviewLang(){ T1X.setLang(T1X.getLang()==="hi"?"en":"hi"); renderPreviewQuestion(); }
 
 function startInlineEdit() { _editingQ = true; renderPreviewQuestion(); }
 function cancelInlineEdit() { _editingQ = false; renderPreviewQuestion(); }
@@ -1978,11 +2044,11 @@ function renderUsersOverview() {
     ["Leaderboard Entries", _allLeaderboard.length, "var(--purple)"]
   ];
   document.getElementById("users-overview-stats").innerHTML =
-    `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px">` +
+    `<div class="stat-grid">` +
     stats.map(([label,val,color]) => `
-      <div style="background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:${color}">${val}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">${label}</div>
+      <div class="stat-box" style="border-left-color:${color}">
+        <div class="val" style="color:${color}">${val}</div>
+        <div class="lbl">${label}</div>
       </div>`).join("") + `</div>`;
 
   const attemptsByUid = {};
@@ -2391,7 +2457,7 @@ function renderObjTable(rows, tableId) {
   const headers = Array.from(rows.reduce((set,r) => { Object.keys(r).forEach(k=>{ if (!k.startsWith("__sort_")) set.add(k); }); return set; }, new Set()));
   const sortSt = tableId ? _tableSortState[tableId] : null;
   const sortedRows = sortSt ? sortRows(rows, sortSt.col, sortSt.dir) : rows;
-  let t = "<div style='overflow:auto;max-height:400px;margin-bottom:16px'><table class='data-table'><thead><tr>";
+  let t = "<div class='data-table-wrap'><table class='data-table'><thead><tr>";
   headers.forEach(h => {
     if (!tableId) { t += `<th>${escHTML(h)}</th>`; return; }
     const active = sortSt && sortSt.col === h;
