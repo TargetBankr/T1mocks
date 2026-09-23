@@ -542,6 +542,59 @@ service cloud.firestore {
     <div class="card">
       <h2>📥 Bulk Import — Whole Test in One Go</h2>
       <p style="color:var(--muted);font-size:13px">Paste Markdown or upload a CSV to create a test + its sections + all its questions in one step. Preview before anything is written.</p>
+      <div class="step" style="margin-bottom:14px">
+        <h3>🤖 Generating the Markdown with an AI?</h3>
+        <p style="font-size:12px">Copy this standalone prompt into ChatGPT/Claude/Gemini along with your topic — it spells out the exact syntax below so the output pastes in clean. The parser below is also more forgiving now (bold/bullets get stripped, missing marks default sensibly, "ANSWER: full option text" resolves itself), so small slips from an AI's output usually won't block the import anymore either.</p>
+        <button class="btn ghost sm" onclick="copyAIPrompt()">📋 Copy AI Prompt</button>
+        <pre id="ai-prompt-text" style="display:none">You are generating a Target1st bulk-import Markdown file for one full mock test. Output ONLY plain lines in the exact format below — no Markdown bold/italics/headings/bullets, no extra commentary before or after, no code fences.
+
+FORMAT (follow exactly):
+
+Line 1 — test header, one line, pipe-separated:
+TEST_ID: <slug-no-spaces> | NAME: <Test Title> | EXAM: <exam_id, or leave blank for a standalone/demo test> | CATEGORY: <category name> | MINUTES: <total minutes, number only> | MODE: open|locked | DEMO: yes|no
+
+Then one line per section:
+SECTION <section_id>: <Section Name> | <N>Q | <N>min | +<correct marks>/-<negative marks>
+Example: SECTION 1: Reasoning | 25Q | 20min | +1/-0.25
+
+Then, for each question, one of these three shapes:
+
+1) Standalone MCQ:
+Q<n>: <question text>
+A) <option>
+B) <option>
+C) <option>
+D) <option>
+E) <option>              (E is optional — 4 or 5 options both fine)
+ANSWER: <single letter, A-E>
+EXPLAIN: <optional explanation>
+
+2) Passage / reading-comprehension group (every question sharing one passage uses the SAME group_id; put PASSAGE only on the first question of the group):
+Q<n> [GROUP:<group_id>|<Passage Title>]: <question text>
+PASSAGE: <full passage text — first question of the group only>
+A) <option>
+B) <option>
+C) <option>
+D) <option>
+ANSWER: <letter>
+
+3) Descriptive:
+Q<n> [DESC:essay|<word_limit>]: <question text>
+KEYPOINTS: <point 1> | <point 2> | <point 3>
+OPENING: <a suggested opening line>
+
+RULES — follow these precisely, they prevent import errors:
+- TEST_ID must be the very first non-empty line of the file.
+- Every KEY: value pair needs the colon right after the key name — no extra colons, no missing colons.
+- ANSWER must be a single option letter (A, B, C, D, or E) — never the option's text.
+- Do not use ** bold **, #, or - / * bullets anywhere — plain text lines only.
+- Keep the given Q<n> numbering as-is; gaps are fine, don't renumber.
+- Question, option, passage, and explanation text can be Hinglish/Hindi if that's what's asked for — don't translate it to English.
+- Long question/option text can run on one line, or continue on the next line with no new marker (it gets joined automatically) — never wrap mid-word with a manual break inside a marker line.
+
+Now generate a full test using this exact format for the following topic/spec:
+[DESCRIBE: subject/topic, number of sections, questions per section, difficulty level, and language — fill this in before sending]</pre>
+      </div>
       <div class="filters-bar" style="margin-bottom:10px">
         <button class="tab active sm" id="bi-tab-md" onclick="switchBulkMode('md')" style="padding:8px 16px">📝 Markdown</button>
         <button class="tab sm" id="bi-tab-csv" onclick="switchBulkMode('csv')" style="padding:8px 16px">📊 CSV</button>
@@ -562,6 +615,7 @@ ANSWER: B
 EXPLAIN: Keyboard is used to input data."></textarea>
         </div></div>
         <details style="margin:8px 0"><summary style="cursor:pointer;font-size:12px;color:var(--blue-d);font-weight:600">📋 Full format reference</summary>
+          <p style="font-size:12px;color:var(--muted);margin:8px 0">The parser is lenient about small slips: bold/bullet markers get stripped, option markers accept "A)", "A.", "A:" or "(A)", a missing marks pattern defaults to +1/-0, and "ANSWER: <full option text>" resolves to the matching letter automatically. Only a genuinely broken question (no text, or no valid answer) gets skipped — the rest of the test still imports, with a warning listing exactly what was skipped.</p>
           <div class="ref-table" style="margin-top:8px">
             <table class="ref-table">
               <tbody>
@@ -639,6 +693,33 @@ EXPLAIN: Keyboard is used to input data."></textarea>
       <div id="users-table-output"></div>
     </div>
     <div class="card">
+      <h3 style="margin-top:0">🔎 Full Detail Viewer</h3>
+      <p style="color:var(--muted);font-size:12px">Look up one student to see every test they've touched, or one test to see everyone who's touched it — attempted and not-yet-attempted, side by side. Load Users &amp; Activity above first.</p>
+      <div class="form-row">
+        <div class="fld">
+          <label>Find a User (name, email, or UID)</label>
+          <input type="text" id="detail-user-input" list="dl-users" placeholder="Start typing a name or email…" onkeydown="if(event.key==='Enter'){event.preventDefault();renderUserDetail();}">
+          <datalist id="dl-users"></datalist>
+        </div>
+        <div class="fld" style="align-self:flex-end">
+          <button class="btn" onclick="renderUserDetail()">👤 View User</button>
+        </div>
+      </div>
+      <div id="user-detail-output"></div>
+      <hr style="border:none;border-top:1px solid var(--line);margin:22px 0">
+      <div class="form-row">
+        <div class="fld">
+          <label>Find a Test (name or test_id)</label>
+          <input type="text" id="detail-test-input" list="dl-tests" placeholder="Start typing a test name…" onkeydown="if(event.key==='Enter'){event.preventDefault();renderTestDetail();}">
+          <datalist id="dl-tests"></datalist>
+        </div>
+        <div class="fld" style="align-self:flex-end">
+          <button class="btn" onclick="renderTestDetail()">📝 View Test</button>
+        </div>
+      </div>
+      <div id="test-detail-output"></div>
+    </div>
+    <div class="card">
       <h3 style="margin-top:0">💳 Purchases (raw)</h3>
       <div id="purchases-table-output"></div>
     </div>
@@ -653,6 +734,12 @@ EXPLAIN: Keyboard is used to input data."></textarea>
   </div>
 
   <div class="panel" id="tab-view">
+    <div class="card">
+      <h2>🔢 Fix Hindi Numerals (Devanagari → Arabic)</h2>
+      <p style="color:var(--muted);font-size:13px">Scans every test — question text, options, explanations, passages, test names, everything — for Devanagari digits (०१२३४५६७८९) and converts them to plain 0-9. Only digit characters are touched; the rest of the text (Hindi or otherwise) is left exactly as-is. Always scans and shows you a preview first — nothing is written until you click "Fix All Now".</p>
+      <div style="margin:12px 0"><button class="btn" id="btn-scan-numerals" onclick="scanHindiNumerals()">🔍 Scan All Tests</button></div>
+      <div id="numeral-fix-output"></div>
+    </div>
     <div class="card">
       <h2>👀 View Firestore Data</h2>
       <p style="color:var(--muted);font-size:13px">Live read of everything currently in your Firestore collections.</p>
@@ -828,6 +915,7 @@ const ADMIN_EMAIL = "subhamdahiya18@gmail.com";
 let db;
 let _allTests = [], _allConfig = [], _allQuestions = [], _allExams = [];
 let _allUsers = [], _allPurchases = [], _allAttempts = [], _allLeaderboard = [], _allLeads = [];
+let _rankByUidTest = {}; // uid -> { test_id: rank } — computed in renderUsersOverview, reused by the detail viewer
 let _usersDataLoaded = false;
 let _leadsFilter = "open";
 let _previewTestId = null, _previewSecId = null, _previewQno = null;
@@ -1233,11 +1321,13 @@ function renderImportPreview() {
   }
   const existing = _allTests.some(t=>t.test_id===p.test.test_id);
   const blocked = p.errors.length>0 || !p.test.test_id;
+  const warnings = p.warnings || [];
   box.innerHTML = `<div class="card" style="background:#f8fafc">
     <h3 style="margin-top:0">Preview</h3>
     <p><b>${escHTML(p.test.test_name||"(no name)")}</b> (ID: ${escHTML(p.test.test_id||"—")}) — Exam: ${escHTML(p.test.exam_id||"none / demo")} — ${p.sections.length} section(s), ${p.questions.length} question(s)</p>
     ${existing? `<p style="color:#a26200">⚠ Test ID "${escHTML(p.test.test_id)}" already exists — importing will overwrite its sections &amp; questions.</p>`:""}
-    ${p.errors.length>0 ? `<div style="background:#fee2e2;color:#991b1b;padding:8px 12px;border-radius:6px;font-size:12px;margin:10px 0">${p.errors.map(e=>"⚠ "+escHTML(e)).join("<br/>")}</div>` : `<div style="background:#dcfce7;color:#166534;padding:8px 12px;border-radius:6px;font-size:12px;margin:10px 0">✅ No errors found</div>`}
+    ${p.errors.length>0 ? `<div style="background:#fee2e2;color:#991b1b;padding:8px 12px;border-radius:6px;font-size:12px;margin:10px 0"><b>Blocking — fix these to import:</b><br/>${p.errors.map(e=>"⚠ "+escHTML(e)).join("<br/>")}</div>` : `<div style="background:#dcfce7;color:#166534;padding:8px 12px;border-radius:6px;font-size:12px;margin:10px 0">✅ No blocking errors</div>`}
+    ${warnings.length>0 ? `<div style="background:#fff8e1;color:#8a6100;padding:8px 12px;border-radius:6px;font-size:12px;margin:10px 0"><b>⚠ ${warnings.length} small thing${warnings.length===1?"":"s"} auto-fixed or skipped — import is still allowed:</b><br/>${warnings.map(w=>"• "+escHTML(w)).join("<br/>")}</div>` : ""}
     <button class="btn green" id="btn-commit-import" onclick="commitBulkImport()" ${blocked?"disabled":""}>💾 Import to Firestore</button>
   </div>`;
 }
@@ -1264,16 +1354,35 @@ async function commitBulkImport() {
   finally { if(btn){ btn.disabled=false; btn.textContent="💾 Import to Firestore"; } }
 }
 
-/* ---- Markdown (Option B) parser ---- */
+/* ---- Markdown (Option B) parser ----
+   errors   = blocking — the whole import is refused while any of these exist.
+   warnings = non-blocking — something was auto-fixed or one bad question was
+              skipped, but the rest of the test still imports fine. This split
+              exists so one typo (a smart quote, "Answer:" with the full option
+              text, a missing marks pattern) doesn't nuke an otherwise-good
+              50-question paste — see renderImportPreview for how it's shown. */
 function parseMarkdownV2(text) {
   const errors = [];
-  const lines = text.replace(/\r\n/g,"\n").split("\n");
+  const warnings = [];
+  const rawLines = text.replace(/\r\n/g,"\n").split("\n");
   let test = null, curSection = null, curQ = null, curField = null;
   const sections = [], questions = [], groupPassages = {}, sectionCounts = {};
 
+  // Strips Markdown noise (bold/italic markers, leading bullets/headings) that
+  // AI-generated pastes often add around control lines. Only ever runs on the
+  // control line itself — captured content after a ":" is untouched, so this
+  // can never mangle actual question/option/explanation text.
+  function cleanControlLine(line) {
+    let l = line.trim();
+    l = l.replace(/^[-*•]\s+/, "");
+    l = l.replace(/^#{1,6}\s+/, "");
+    l = l.replace(/\*\*/g, "").replace(/__/g, "");
+    return l.trim();
+  }
+
   function finalizeQuestion() {
     if (!curQ) return;
-    if (!curSection) { errors.push(`Q${curQ.qno}: appears before any SECTION line — skipped`); curQ=null; return; }
+    if (!curSection) { warnings.push(`Q${curQ.qno}: appeared before any SECTION line — skipped`); curQ=null; curField=null; return; }
     curQ.test_id = test ? test.test_id : "";
     curQ.section_id = curSection.section_id;
     curQ.question_text = (curQ.question_text||"").trim();
@@ -1283,46 +1392,54 @@ function parseMarkdownV2(text) {
       if (curQ.passage_text) groupPassages[curQ.group_id] = {text:curQ.passage_text, image:curQ.passage_image_url||""};
       else if (groupPassages[curQ.group_id]) { curQ.passage_text = groupPassages[curQ.group_id].text; if(!curQ.passage_image_url) curQ.passage_image_url = groupPassages[curQ.group_id].image; }
     }
-    if (!curQ.question_text) errors.push(`Q${curQ.qno} (section ${curSection.section_id}): missing question text`);
-    if (curQ.type!=="descriptive") {
-      if (!curQ.option_a || !curQ.option_b) errors.push(`Q${curQ.qno}: needs at least options A and B`);
-      if (!curQ.correct) errors.push(`Q${curQ.qno}: missing ANSWER`);
+    // ANSWER given as the full option text instead of a bare letter (e.g.
+    // "ANSWER: New Delhi") — match it against the options and resolve the letter.
+    if (curQ.type!=="descriptive" && curQ.correct && !/^[A-E]$/i.test(curQ.correct)) {
+      const wanted = curQ.correct.trim().toLowerCase();
+      const hit = ["a","b","c","d","e"].find(l => (curQ["option_"+l]||"").trim().toLowerCase() === wanted);
+      if (hit) curQ.correct = hit.toUpperCase();
+    } else if (curQ.correct) {
+      curQ.correct = curQ.correct.trim().toUpperCase().charAt(0);
     }
-    questions.push(curQ);
-    sectionCounts[curSection.section_id] = (sectionCounts[curSection.section_id]||0)+1;
+    let skip = false;
+    if (!curQ.question_text) { warnings.push(`Q${curQ.qno} (section ${curSection.section_id}): missing question text — skipped`); skip = true; }
+    if (!skip && curQ.type!=="descriptive") {
+      if (!curQ.option_a || !curQ.option_b) { warnings.push(`Q${curQ.qno}: needs at least options A and B — skipped`); skip = true; }
+      else if (!/^[A-E]$/.test(curQ.correct||"")) { warnings.push(`Q${curQ.qno}: missing or unrecognized ANSWER — skipped`); skip = true; }
+    }
+    if (!skip) { questions.push(curQ); sectionCounts[curSection.section_id] = (sectionCounts[curSection.section_id]||0)+1; }
     curQ = null; curField = null;
   }
 
-  for (const raw of lines) {
-    const line = raw.trim();
+  for (const raw of rawLines) {
+    const line = cleanControlLine(raw);
     if (!line) continue;
     let m;
 
     if (/^TEST_ID\s*:/i.test(line)) {
       finalizeQuestion();
       test = {test_id:"",test_name:"",exam_id:"",category:"General",total_minutes:"",is_lock:"no",is_demo:"no",test_type:"Full Mock",is_active:"yes",description:""};
-      line.split("|").map(p=>p.trim()).forEach(p => {
-        const mm = p.match(/^([A-Z_]+)\s*:\s*(.*)$/i); if (!mm) return;
-        const key = mm[1].toUpperCase(), val = mm[2].trim();
-        if (key==="TEST_ID") test.test_id = val;
-        else if (key==="NAME") test.test_name = val;
-        else if (key==="EXAM") test.exam_id = val;
-        else if (key==="CATEGORY") test.category = val;
-        else if (key==="MINUTES") test.total_minutes = val;
-        else if (key==="MODE") test.is_lock = val.toLowerCase()==="locked" ? "yes" : "no";
-        else if (key==="DEMO") test.is_demo = val.toLowerCase()==="yes" ? "yes" : "no";
-        else if (key==="TYPE") test.test_type = val;
-        else if (key==="DESCRIPTION") test.description = val;
-      });
+      applyTestFields(test, line);
       if (!test.test_id) errors.push("TEST_ID line is missing a test_id value");
       continue;
     }
+    // Allow the TEST_ID header's fields (NAME/EXAM/CATEGORY/MINUTES/MODE/DEMO/
+    // TYPE/DESCRIPTION) on their own line too, not just pipe-joined on one line —
+    // a common shape when an AI writes the header as a small list instead.
+    if (test && !curSection && !curQ && /^(NAME|EXAM|CATEGORY|MINUTES|MODE|DEMO|TYPE|DESCRIPTION)\s*:/i.test(line)) {
+      applyTestFields(test, line);
+      continue;
+    }
 
-    if ((m = line.match(/^SECTION\s+(\S+)\s*:\s*([^|]+)\|\s*(\d+)\s*Q\s*\|\s*([\d.]+)\s*min\s*\|\s*\+?([\d.]+)\s*\/\s*-?([\d.]+)/i))) {
+    if (/^SECTION\b/i.test(line)) {
       finalizeQuestion();
-      curSection = { test_id: test?test.test_id:"", section_id: m[1].trim(), section_name: m[2].trim(),
-        num_questions: m[3], time_minutes: m[4], marks_correct: m[5], marks_negative: m[6], instructions: "" };
-      sections.push(curSection);
+      const parsed = parseSectionLine(line, test ? test.test_id : "");
+      if (parsed.error) { warnings.push(parsed.error); curSection = null; }
+      else {
+        curSection = parsed.section;
+        sections.push(curSection);
+        (parsed.warnings||[]).forEach(w => warnings.push(w));
+      }
       continue;
     }
 
@@ -1348,9 +1465,10 @@ function parseMarkdownV2(text) {
 
     if (!curQ) continue; // stray line before any question — ignore
 
-    if ((m = line.match(/^([A-E])\)\s*(.*)$/i))) { curQ["option_"+m[1].toLowerCase()] = m[2].trim(); curField=null; continue; }
-    if ((m = line.match(/^ANSWER\s*:\s*(.*)$/i))) { curQ.correct = m[1].trim().toUpperCase().charAt(0); curField=null; continue; }
-    if ((m = line.match(/^EXPLAIN\s*:\s*(.*)$/i))) { curQ.explanation = m[1]; curField="explanation"; continue; }
+    // Option markers: "A)", "A.", "A:", "(A)" are all accepted now.
+    if ((m = line.match(/^\(?([A-E])[\)\.:]\s*(.*)$/i))) { curQ["option_"+m[1].toLowerCase()] = m[2].trim(); curField=null; continue; }
+    if ((m = line.match(/^ANSWER\s*:\s*(.*)$/i))) { curQ.correct = m[1].trim(); curField=null; continue; }
+    if ((m = line.match(/^EXPLAIN(?:ATION)?\s*:\s*(.*)$/i))) { curQ.explanation = m[1]; curField="explanation"; continue; }
     if ((m = line.match(/^PASSAGE\s*:\s*(.*)$/i))) { curQ.passage_text = m[1]; curField="passage_text"; continue; }
     if ((m = line.match(/^QIMG\s*:\s*(.*)$/i))) { curQ.question_image_url = m[1].trim(); curField=null; continue; }
     if ((m = line.match(/^PASSAGEIMG\s*:\s*(.*)$/i))) { curQ.passage_image_url = m[1].trim(); curField=null; continue; }
@@ -1364,10 +1482,52 @@ function parseMarkdownV2(text) {
 
   sections.forEach(s => { s.num_questions = String(sectionCounts[s.section_id]||0); });
   if (test) test.total_questions = String(questions.length);
-  if (!test) errors.push("No TEST_ID header line found — must be the first non-empty line.");
-  if (sections.length===0) errors.push("No SECTION lines found.");
-  if (questions.length===0) errors.push("No questions parsed.");
-  return {test, sections, questions, errors};
+  if (!test) errors.push("No TEST_ID header line found — must be the first non-empty line (e.g. TEST_ID: t1 | NAME: My Test).");
+  if (sections.length===0) errors.push("No valid SECTION lines found.");
+  if (questions.length===0) errors.push("No valid questions parsed — every question was either missing or skipped (see warnings below).");
+  return {test, sections, questions, errors, warnings};
+}
+// Pulls TEST_ID's sibling fields out of a "KEY: value | KEY: value" line —
+// used both for the pipe-joined header line and for standalone "NAME: .." etc lines.
+function applyTestFields(test, line) {
+  line.split("|").map(p=>p.trim()).forEach(p => {
+    const mm = p.match(/^([A-Z_]+)\s*:\s*(.*)$/i); if (!mm) return;
+    const key = mm[1].toUpperCase(), val = mm[2].trim();
+    if (key==="TEST_ID") test.test_id = val;
+    else if (key==="NAME") test.test_name = val;
+    else if (key==="EXAM") test.exam_id = val;
+    else if (key==="CATEGORY") test.category = val;
+    else if (key==="MINUTES") test.total_minutes = val;
+    else if (key==="MODE") test.is_lock = val.toLowerCase()==="locked" ? "yes" : "no";
+    else if (key==="DEMO") test.is_demo = val.toLowerCase()==="yes" ? "yes" : "no";
+    else if (key==="TYPE") test.test_type = val;
+    else if (key==="DESCRIPTION") test.description = val;
+  });
+}
+// Tolerant "SECTION <id>: <name> | <N>Q | <N>min | +X/-Y" parser. The three
+// pieces after the name can come in any order, with flexible spacing/units
+// ("20 Qs", "20min", "20 minutes" all work) — and if the marks or time piece
+// is missing entirely, the section still imports with a sane default plus a
+// warning, instead of the whole SECTION line being rejected.
+function parseSectionLine(line, testId) {
+  const head = line.match(/^SECTION\s+(\S+)\s*:\s*(.*)$/i);
+  if (!head) return { error: `Unrecognized SECTION line: "${line}"` };
+  const section_id = head[1].trim();
+  const parts = head[2].split("|").map(p=>p.trim()).filter(Boolean);
+  if (!parts.length) return { error: `SECTION ${section_id}: missing name/details after the colon` };
+  const section_name = parts[0];
+  const warnings = [];
+  let num_questions = "", time_minutes = "", marks_correct = "1", marks_negative = "0", sawMarks = false;
+  for (const part of parts.slice(1)) {
+    let mm;
+    if ((mm = part.match(/^(\d+)\s*(?:q|questions?)$/i))) { num_questions = mm[1]; continue; }
+    if ((mm = part.match(/^([\d.]+)\s*(?:min|mins|minutes?)$/i))) { time_minutes = mm[1]; continue; }
+    if ((mm = part.match(/^\+?([\d.]+)\s*\/\s*-?([\d.]+)$/))) { marks_correct = mm[1]; marks_negative = mm[2]; sawMarks = true; continue; }
+    if ((mm = part.match(/^-([\d.]+)\s*\/\s*\+?([\d.]+)$/))) { marks_negative = mm[1]; marks_correct = mm[2]; sawMarks = true; continue; }
+  }
+  if (!time_minutes) warnings.push(`SECTION ${section_id}: no time limit recognized (expected e.g. "20min") — left blank, set it in Manage Tests.`);
+  if (!sawMarks) warnings.push(`SECTION ${section_id}: no marks pattern recognized (expected e.g. "+2/-0.5") — defaulted to +1/-0.`);
+  return { section: { test_id: testId, section_id, section_name, num_questions, time_minutes, marks_correct, marks_negative, instructions: "" }, warnings };
 }
 
 /* ---- CSV parser (RFC4180-ish) ---- */
@@ -1832,13 +1992,13 @@ function renderUsersOverview() {
 
   // app.html doesn't store a rank field — it sorts entries by score desc and
   // shows position visually. Reproduce that here: rank within each test_id group.
-  const rankByUidTest = {}; // uid -> { test_id: rank }
+  _rankByUidTest = {}; // uid -> { test_id: rank }
   const lbByTest = {};
   _allLeaderboard.forEach(l => { (lbByTest[l.test_id] ||= []).push(l); });
   Object.values(lbByTest).forEach(group => {
     group.sort((a,b) => (Number(b.score)||0) - (Number(a.score)||0));
     group.forEach((entry, i) => {
-      (rankByUidTest[entry.uid] ||= {})[entry.test_id] = i + 1;
+      (_rankByUidTest[entry.uid] ||= {})[entry.test_id] = i + 1;
     });
   });
 
@@ -1857,7 +2017,7 @@ function renderUsersOverview() {
     const lastActivityMs = dates.length ? Math.max(...dates.map(d => d.getTime())) : 0;
     const lastActivity = dates.length ? new Date(lastActivityMs).toLocaleString("en-IN") : "—";
 
-    const myRanks = Object.values(rankByUidTest[u.uid] || {});
+    const myRanks = Object.values(_rankByUidTest[u.uid] || {});
     const bestRank = myRanks.length ? "#" + Math.min(...myRanks) : "—";
 
     return {
@@ -1900,12 +2060,147 @@ function renderUsersOverview() {
   document.getElementById("leaderboard-table-output").innerHTML = renderObjTable(_allLeaderboard.map(l => {
     const ts = toJsDate(l.timestamp);
     return {
-      test_id: l.test_id, rank: (rankByUidTest[l.uid] || {})[l.test_id] || "—",
+      test_id: l.test_id, rank: (_rankByUidTest[l.uid] || {})[l.test_id] || "—",
       name: l.name, email: l.email, score: l.score, correct: l.correct, wrong: l.wrong, accuracy_pct: l.accuracy_pct,
       when: ts ? ts.toLocaleString("en-IN") : "—", uid: l.uid,
       __sort_when: ts ? ts.getTime() : 0
     };
   }), "leaderboard");
+
+  populateDetailDatalists();
+}
+
+/* ───── Full Detail Viewer — one user's whole history, or one test's whole roster ───── */
+// Mirrors app.html's hasAccessToTest() exactly (checked directly against that
+// file): a test is accessible if it's marked demo, OR it has no exam_id
+// assigned at all (app.html fails open in that case), OR the user's
+// purchased_exams includes that exam_id. is_lock plays NO part in access —
+// in app.html it only toggles a "Locked Mode"/"Open Mode" badge and an
+// exam-taking behavior flag, so it's deliberately ignored here.
+function hasAccess(u, t) {
+  if ((t.is_demo||"no").toLowerCase() === "yes") return true;
+  const examId = (t.exam_id||"").trim();
+  if (!examId) return true;
+  return (u.purchased_exams || []).includes(examId);
+}
+function accessReason(u, t) {
+  if ((t.is_demo||"no").toLowerCase()==="yes") return "Demo";
+  if (!(t.exam_id||"").trim()) return "No bundle assigned (free)";
+  return "Purchased bundle";
+}
+function accessibleTests(u) {
+  return _allTests.filter(t => hasAccess(u, t));
+}
+function usersWithAccess(t) {
+  return _allUsers.filter(u => hasAccess(u, t));
+}
+function populateDetailDatalists() {
+  const dlU = document.getElementById("dl-users");
+  if (dlU) dlU.innerHTML = _allUsers.map(u =>
+    `<option value="${escAttr((u.name||"Unnamed")+" — "+(u.email||u.uid))}">`).join("");
+  const dlT = document.getElementById("dl-tests");
+  if (dlT) dlT.innerHTML = _allTests.map(t =>
+    `<option value="${escAttr((t.test_name||t.test_id)+" — "+t.test_id)}">`).join("");
+}
+// Matches typed input against uid, exact email, the "Name — email" datalist
+// value, exact name, then finally falls back to a loose substring match.
+function findUserByQuery(qRaw) {
+  const q = (qRaw||"").trim().toLowerCase();
+  if (!q) return null;
+  const afterDash = q.includes("—") ? q.split("—").pop().trim() : "";
+  return _allUsers.find(u => (u.uid||"").toLowerCase()===q)
+      || _allUsers.find(u => (u.email||"").toLowerCase()===q)
+      || (afterDash && _allUsers.find(u => (u.email||"").toLowerCase()===afterDash))
+      || _allUsers.find(u => (u.name||"").toLowerCase()===q)
+      || _allUsers.find(u => (u.email||"").toLowerCase().includes(q) || (u.name||"").toLowerCase().includes(q));
+}
+function findTestByQuery(qRaw) {
+  const q = (qRaw||"").trim().toLowerCase();
+  if (!q) return null;
+  const afterDash = q.includes("—") ? q.split("—").pop().trim() : "";
+  return _allTests.find(t => (t.test_id||"").toLowerCase()===q)
+      || (afterDash && _allTests.find(t => (t.test_id||"").toLowerCase()===afterDash))
+      || _allTests.find(t => (t.test_name||"").toLowerCase()===q)
+      || _allTests.find(t => (t.test_name||"").toLowerCase().includes(q) || (t.test_id||"").toLowerCase().includes(q));
+}
+function renderUserDetail() {
+  if (!_usersDataLoaded) { toast('❌ Click "Load Users & Activity" first', true); return; }
+  const box = document.getElementById("user-detail-output");
+  const u = findUserByQuery(document.getElementById("detail-user-input").value);
+  if (!u) { box.innerHTML = `<p style="color:var(--red);font-size:13px;margin-top:10px">No matching user found.</p>`; return; }
+
+  const myAttempts = _allAttempts.filter(a => a.uid === u.uid)
+    .slice().sort((a,b) => (toJsDate(b.timestamp)?.getTime()||0) - (toJsDate(a.timestamp)?.getTime()||0));
+  const attemptedTestIds = new Set(myAttempts.map(a => a.test_id));
+  const notAttempted = accessibleTests(u).filter(t => !attemptedTestIds.has(t.test_id));
+  const bundles = (u.purchased_exams||[]).map(eid => {
+    const ex = _allExams.find(x => x.exam_id === eid); return ex ? ex.exam_name : eid;
+  }).join(", ") || "—";
+
+  box.innerHTML = `
+    <div style="background:var(--blue-l);border-radius:8px;padding:14px 16px;margin:14px 0">
+      <div style="font-weight:800;color:var(--blue-d);font-size:15px">${escHTML(u.name||"Unnamed")}</div>
+      <div style="font-size:12px;color:var(--muted)">${escHTML(u.email||"—")} · UID: ${escHTML(u.uid)}</div>
+      <div style="font-size:12px;margin-top:4px"><b>Bundles owned:</b> ${escHTML(bundles)}</div>
+    </div>
+    <h4 style="margin:14px 0 6px;color:var(--blue-d);font-size:13px">✅ Tests Attempted (${myAttempts.length})</h4>
+    <div id="userdetail-attempts-table-output"></div>
+    <h4 style="margin:18px 0 6px;color:var(--blue-d);font-size:13px">⏳ Has Access, Not Yet Attempted (${notAttempted.length})</h4>
+    <div id="userdetail-notattempted-table-output"></div>`;
+
+  document.getElementById("userdetail-attempts-table-output").innerHTML = renderObjTable(myAttempts.map(a => {
+    const ts = toJsDate(a.timestamp);
+    return {
+      "Test": a.test_name || a.test_id, "Score": a.score, "Correct": a.correct, "Wrong": a.wrong,
+      "Attempted": a.attempted, "Accuracy %": a.accuracy_pct,
+      "Rank": (_rankByUidTest[u.uid]||{})[a.test_id] || "—",
+      "First Attempt": a.is_first_attempt, "When": ts ? ts.toLocaleString("en-IN") : "—",
+      "__sort_When": ts ? ts.getTime() : 0
+    };
+  }), "userdetail-attempts");
+
+  document.getElementById("userdetail-notattempted-table-output").innerHTML = notAttempted.length
+    ? renderObjTable(notAttempted.map(t => ({
+        "Test": t.test_name, "Test ID": t.test_id, "Exam": t.exam_id||"—",
+        "Type": accessReason(u, t)
+      })))
+    : `<p style="color:var(--muted);font-size:13px">None — nothing left they have access to but haven't tried.</p>`;
+}
+function renderTestDetail() {
+  if (!_usersDataLoaded) { toast('❌ Click "Load Users & Activity" first', true); return; }
+  const box = document.getElementById("test-detail-output");
+  const t = findTestByQuery(document.getElementById("detail-test-input").value);
+  if (!t) { box.innerHTML = `<p style="color:var(--red);font-size:13px;margin-top:10px">No matching test found.</p>`; return; }
+
+  const attempts = _allAttempts.filter(a => a.test_id === t.test_id)
+    .slice().sort((a,b) => (Number(b.score)||0) - (Number(a.score)||0));
+  const attemptedUids = new Set(attempts.map(a => a.uid));
+  const notAttempted = usersWithAccess(t).filter(u => !attemptedUids.has(u.uid));
+  const ex = _allExams.find(x => x.exam_id === t.exam_id);
+
+  box.innerHTML = `
+    <div style="background:var(--blue-l);border-radius:8px;padding:14px 16px;margin:14px 0">
+      <div style="font-weight:800;color:var(--blue-d);font-size:15px">${escHTML(t.test_name||t.test_id)}</div>
+      <div style="font-size:12px;color:var(--muted)">ID: ${escHTML(t.test_id)} · Exam: ${escHTML(ex?ex.exam_name:(t.exam_id||"none / demo"))} · ${t.is_demo==="yes"?"Demo":((t.exam_id||"").trim()?"Paid bundle":"Free (no bundle)")} · ${(t.is_lock||"").toLowerCase()==="yes"?"Locked Mode":"Open Mode"}</div>
+    </div>
+    <h4 style="margin:14px 0 6px;color:var(--blue-d);font-size:13px">✅ Attempted By (${attempts.length})</h4>
+    <div id="testdetail-attempts-table-output"></div>
+    <h4 style="margin:18px 0 6px;color:var(--blue-d);font-size:13px">⏳ Has Access, Not Yet Attempted (${notAttempted.length})</h4>
+    <div id="testdetail-notattempted-table-output"></div>`;
+
+  document.getElementById("testdetail-attempts-table-output").innerHTML = renderObjTable(attempts.map((a,i) => {
+    const ts = toJsDate(a.timestamp);
+    return {
+      "Rank": i+1, "Name": a.candidate_name || "—", "Email": a.candidate_email || "—",
+      "Score": a.score, "Correct": a.correct, "Wrong": a.wrong, "Accuracy %": a.accuracy_pct,
+      "Time (sec)": a.time_taken_sec, "First Attempt": a.is_first_attempt,
+      "When": ts ? ts.toLocaleString("en-IN") : "—", "__sort_When": ts ? ts.getTime() : 0
+    };
+  }), "testdetail-attempts");
+
+  document.getElementById("testdetail-notattempted-table-output").innerHTML = notAttempted.length
+    ? renderObjTable(notAttempted.map(u => ({ "Name": u.name||"—", "Email": u.email||"—", "UID": u.uid })))
+    : `<p style="color:var(--muted);font-size:13px">None — everyone with access has attempted it.</p>`;
 }
 
 /* ───── Leads (clicked "Unlock All", may not have paid) ───── */
@@ -1953,6 +2248,98 @@ function renderLeadsCards() {
 }
 
 /* ───── View Data ────────────────────────────── */
+/* ───── Fix Hindi Numerals (Devanagari → Arabic) ───────────────
+   Some AI-generated content types numbers as Devanagari digits
+   (०१२३४५६७८९) instead of plain 0-9 — this walks every string
+   field in tests/test_content/exams, converts just the digit
+   characters, and leaves everything else (including the rest of
+   the Hindi text) untouched. Scan first, then a single explicit
+   commit — nothing is written on scan alone. */
+const _devanagariDigitMap = {"०":"0","१":"1","२":"2","३":"3","४":"4","५":"5","६":"6","७":"7","८":"8","९":"9"};
+function hasDevanagariDigits(s) { return /[०-९]/.test(String(s ?? "")); }
+function devanagariToArabic(s) { return String(s).replace(/[०-९]/g, d => _devanagariDigitMap[d]); }
+// Deep-clones obj, converting Devanagari digits in every string leaf, and
+// pushes {path, before, after} into `changes` for each string actually changed.
+function walkFixNumerals(obj, path, changes) {
+  if (obj == null) return obj;
+  if (typeof obj === "string") {
+    if (!hasDevanagariDigits(obj)) return obj;
+    const after = devanagariToArabic(obj);
+    changes.push({ path: path || "(root)", before: obj, after });
+    return after;
+  }
+  if (Array.isArray(obj)) return obj.map((v,i) => walkFixNumerals(v, `${path}[${i}]`, changes));
+  if (typeof obj === "object") {
+    const out = {};
+    for (const k in obj) out[k] = walkFixNumerals(obj[k], path ? `${path}.${k}` : k, changes);
+    return out;
+  }
+  return obj; // numbers/booleans/etc — untouched
+}
+let _numeralFixPreview = null;
+async function scanHindiNumerals() {
+  const btn = document.getElementById("btn-scan-numerals");
+  const out = document.getElementById("numeral-fix-output");
+  btn.disabled = true; btn.textContent = "Scanning…";
+  out.innerHTML = "";
+  try {
+    const cols = ["tests", "test_content", "exams"];
+    const snaps = await Promise.all(cols.map(c => db.collection(c).get()));
+    const fixes = [];
+    snaps.forEach((snap, ci) => {
+      const collection = cols[ci];
+      snap.docs.forEach(d => {
+        const changes = [];
+        const fixedDoc = walkFixNumerals(d.data(), "", changes);
+        if (changes.length) fixes.push({ collection, docId: d.id, changes, fixedDoc });
+      });
+    });
+    _numeralFixPreview = fixes;
+    const totalFields = fixes.reduce((s,f) => s + f.changes.length, 0);
+    if (!fixes.length) {
+      out.innerHTML = `<p style="color:var(--muted);font-size:13px;margin-top:10px">✅ No Devanagari numerals found anywhere — nothing to fix.</p>`;
+      return;
+    }
+    const sampleRows = fixes.flatMap(f => f.changes.slice(0,4).map(c => ({
+      "Doc": `${f.collection}/${f.docId}`, "Field": c.path,
+      "Before": c.before, "After": c.after
+    })));
+    out.innerHTML = `
+      <p style="font-size:13px;margin:10px 0">Found Devanagari numerals in <b>${totalFields}</b> field(s) across <b>${fixes.length}</b> document(s). Sample of what will change (showing up to 4 per doc):</p>
+      <div id="numeral-fix-sample"></div>
+      <button class="btn green" id="btn-commit-numerals" onclick="commitHindiNumeralFix()" style="margin-top:10px">✅ Fix All Now (${fixes.length} doc${fixes.length===1?"":"s"})</button>`;
+    document.getElementById("numeral-fix-sample").innerHTML = renderObjTable(sampleRows);
+  } catch(e) {
+    out.innerHTML = `<p style="color:var(--red);font-size:13px;margin-top:10px">❌ Scan failed: ${escHTML(e.message)}</p>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "🔍 Scan All Tests";
+  }
+}
+async function commitHindiNumeralFix() {
+  if (!_numeralFixPreview || !_numeralFixPreview.length) return;
+  const btn = document.getElementById("btn-commit-numerals");
+  btn.disabled = true; btn.textContent = "Fixing…";
+  try {
+    // Firestore batches cap at 500 writes — chunk just in case a huge library needs it.
+    const batches = []; let batch = db.batch(); let n = 0;
+    _numeralFixPreview.forEach(f => {
+      batch.set(db.collection(f.collection).doc(f.docId), f.fixedDoc);
+      n++;
+      if (n === 450) { batches.push(batch); batch = db.batch(); n = 0; }
+    });
+    if (n > 0) batches.push(batch);
+    for (const b of batches) await b.commit();
+    toast(`✅ Fixed numerals in ${_numeralFixPreview.length} document(s)`);
+    document.getElementById("numeral-fix-output").innerHTML = `<p style="color:#166534;font-size:13px;margin-top:10px">✅ Done. Click "🔄 Refresh" in Manage Tests (or reload Users &amp; Activity) to see the updated content.</p>`;
+    _numeralFixPreview = null;
+    if (_adminDataLoaded) loadManageData(true);
+  } catch(e) {
+    toast("❌ Fix failed: " + e.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function loadData() {
   const btn = document.getElementById("btn-load");
   btn.disabled = true; btn.textContent = "Loading…";
@@ -2042,6 +2429,10 @@ function hideModal(id) { document.getElementById(id).classList.remove("active");
 function copyFirebase() {
   const text = document.getElementById("firebase-code").textContent;
   navigator.clipboard.writeText(text).then(() => toast("✅ Snippet copied!"));
+}
+function copyAIPrompt() {
+  const text = document.getElementById("ai-prompt-text").textContent;
+  navigator.clipboard.writeText(text).then(() => toast("✅ Prompt copied — paste it into your AI of choice!"));
 }
 
 /* ───── Init ─────────────────────────────────── */
