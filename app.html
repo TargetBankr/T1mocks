@@ -868,20 +868,40 @@ const T1X = (function(){
     } catch(e){}
   }
 
-  // ---- Text size: manual scale (0%–100% slider maps to a 60%–150% font
-  // multiplier), applied directly as a CSS var — no auto-measuring, so it
-  // can't misfire. ----
-  let scalePct = parseInt(localStorage.getItem("t1_scale") || "50", 10); // 50 = default 100% font
+  // ---- Text size: the slider sets a PREFERRED max size (0-100 -> 0.5x-1.5x).
+  // autoFit() then starts from that preferred size and, per question, only
+  // shrinks further if the content would actually overflow the box —
+  // never grows past what the user picked, never shrinks below a hard
+  // readable floor, and re-measures after layout has actually settled
+  // (double rAF + retries) instead of guessing too early. ----
+  let scalePct = parseInt(localStorage.getItem("t1_scale") || "50", 10); // 50 = preferred 100% font
+  const FLOOR_MULT = 0.6; // never render smaller than 60% of the base 16px/15px size
   function getScalePct(){ return scalePct; }
   function pctToMult(pct){ return 0.5 + (pct/100); } // 0%->0.5x, 50%->1.0x, 100%->1.5x
-  function setScalePct(pct, el){
+  function setScalePct(pct){
     scalePct = Math.max(0, Math.min(100, pct));
     localStorage.setItem("t1_scale", scalePct);
-    (el || document.getElementById("q-pane")).style.setProperty("--t1-fit-scale", pctToMult(scalePct));
   }
-  function applyScale(el){ (el || document.getElementById("q-pane")).style.setProperty("--t1-fit-scale", pctToMult(scalePct)); }
+  function autoFit(container){
+    if (!container) return;
+    const base = pctToMult(scalePct);
+    container.style.setProperty("--t1-fit-scale", base);
+    let tries = 0;
+    const measure = () => {
+      tries++;
+      const availH = container.clientHeight;
+      if (!availH){ if (tries < 8) requestAnimationFrame(measure); return; } // layout not ready yet — wait, don't guess
+      let mult = base, guard = 0;
+      while (mult > FLOOR_MULT && container.scrollHeight > availH + 1 && guard < 40){
+        mult = Math.max(FLOOR_MULT, mult - 0.04);
+        container.style.setProperty("--t1-fit-scale", mult.toFixed(2));
+        guard++;
+      }
+    };
+    requestAnimationFrame(() => requestAnimationFrame(measure));
+  }
 
-  return { split, pick, isDual, setLang, getLang, renderMath, getScalePct, setScalePct, applyScale };
+  return { split, pick, isDual, setLang, getLang, renderMath, getScalePct, setScalePct, autoFit };
 })();
 
 /* ---- 1. FIREBASE CONFIG ---- */
@@ -1580,7 +1600,7 @@ function renderCurrentQuestion(){
     else { area.classList.add("no-passage"); }
     $("#q-num").textContent=`Question No. ${state.currentQIdx+1}`;
     $("#q-meta").textContent=`Marks: +${sec.marks_correct} / -${sec.marks_negative}`;
-    $("#q-img-wrap").innerHTML=q.question_image_url?`<img class="q-img" src="${escHTML(convertDriveUrl(q.question_image_url))}" alt="question" referrerpolicy="no-referrer" onerror="this.style.display='none'"/>`:"";
+    $("#q-img-wrap").innerHTML=q.question_image_url?`<img class="q-img" src="${escHTML(convertDriveUrl(q.question_image_url))}" alt="question" referrerpolicy="no-referrer" onerror="this.style.display='none'" onload="T1X.autoFit(document.getElementById('q-pane'))"/>`:"";
     $("#q-text").innerHTML=escHTML(T1X.pick(q.question_text));
     T1X.renderMath($("#q-text"));
     const chosen=state.answers[q.qid];
@@ -1592,7 +1612,7 @@ function renderCurrentQuestion(){
     $$("#q-options .q-opt").forEach(el=>{ el.addEventListener("click",()=>{ const L=el.dataset.letter; state.answers[q.qid]=L; $$("#q-options .q-opt").forEach(o=>o.classList.remove("selected")); el.classList.add("selected"); const radio=el.querySelector("input"); if(radio) radio.checked=true; saveState(); }); });
   }
   updateLangToggleVisibility(qs);
-  T1X.applyScale($("#q-pane"));
+  T1X.autoFit($("#q-pane"));
   renderPalette(); saveState();
 }
 function updateLangToggleVisibility(qs){
@@ -1857,10 +1877,14 @@ function bindGlobalEvents(){
     const slider=$("#fit-slider"), pctLabel=$("#fit-pct-label"), popover=$("#fit-popover"), btn=$("#btn-fit-toggle");
     slider.value=T1X.getScalePct();
     pctLabel.textContent=Math.round(50+T1X.getScalePct())+"%"; // display as font-size % (50%-150%)
-    slider.addEventListener("input",()=>{ const v=parseInt(slider.value,10); T1X.setScalePct(v); pctLabel.textContent=Math.round(50+v)+"%"; });
+    slider.addEventListener("input",()=>{ const v=parseInt(slider.value,10); T1X.setScalePct(v); pctLabel.textContent=Math.round(50+v)+"%"; T1X.autoFit($("#q-pane")); });
     btn.addEventListener("click",(e)=>{ e.stopPropagation(); popover.style.display=popover.style.display==="none"?"block":"none"; });
     document.addEventListener("click",(e)=>{ if(popover.style.display!=="none" && !popover.contains(e.target) && e.target!==btn) popover.style.display="none"; });
   })();
+  window.addEventListener("resize",()=>{ if($("#screen-exam").classList.contains("active")) T1X.autoFit($("#q-pane")); });
+  document.addEventListener("fullscreenchange",()=>{ if($("#screen-exam").classList.contains("active")) T1X.autoFit($("#q-pane")); });
+  document.addEventListener("webkitfullscreenchange",()=>{ if($("#screen-exam").classList.contains("active")) T1X.autoFit($("#q-pane")); });
+  window.addEventListener("orientationchange",()=>{ if($("#screen-exam").classList.contains("active")) setTimeout(()=>T1X.autoFit($("#q-pane")),150); });
   $("#btn-lang-toggle").addEventListener("click",()=>{ T1X.setLang(T1X.getLang()==="hi"?"en":"hi"); renderCurrentQuestion(); });
   $("#ssub-confirm").addEventListener("click",()=>{
     hideModal("modal-section-submit");
