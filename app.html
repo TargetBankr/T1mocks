@@ -200,12 +200,12 @@ a{color:var(--c-blue)}
 .q-area.no-passage .q-passage{display:none}
 .q-area.no-passage .q-pane{width:100%}
 .q-passage-title{font-weight:700;color:var(--c-blue-dark);font-size:13px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--c-line);padding-bottom:6px}
-.q-passage-text{font-family:var(--serif);font-size:calc(15px * var(--t1-fit-scale,1));line-height:1.75;color:#222;white-space:pre-wrap}
+.q-passage-text{font-family:var(--serif);font-size:15px;line-height:1.75;color:#222;white-space:pre-wrap}
 .q-passage-img{max-width:100%;height:auto;display:block;margin:0 0 14px;border:1px solid var(--c-line);border-radius:4px}
 .q-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--c-line);padding-bottom:8px;margin-bottom:14px}
 .q-num{font-size:14px;font-weight:600;color:var(--c-blue-dark)}
 .q-meta{font-size:11px;color:var(--c-muted)}
-.q-text{font-family:var(--serif);font-size:calc(16px * var(--t1-fit-scale,1));line-height:1.7;color:#1a1a1a;margin-bottom:18px;white-space:pre-wrap}
+.q-text{font-family:var(--serif);font-size:16px;line-height:1.7;color:#1a1a1a;margin-bottom:18px;white-space:pre-wrap}
 .q-img{max-width:100%;height:auto;display:block;margin:0 0 14px;border:1px solid var(--c-line);border-radius:4px}
 .q-options{display:flex;flex-direction:column;gap:10px}
 .q-opt{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--c-line);border-radius:4px;cursor:pointer;background:#fff;transition:background .12s,border-color .12s}
@@ -213,7 +213,7 @@ a{color:var(--c-blue)}
 .q-opt.selected{background:#e8f4fd;border-color:var(--c-blue)}
 .q-opt input{margin-top:3px;flex-shrink:0;cursor:pointer}
 .q-opt .opt-letter{font-weight:700;color:var(--c-blue-dark);min-width:22px}
-.q-opt .opt-text{flex:1;font-family:var(--serif);font-size:calc(15px * var(--t1-fit-scale,1));line-height:1.6;color:#222;white-space:pre-wrap}
+.q-opt .opt-text{flex:1;font-family:var(--serif);font-size:15px;line-height:1.6;color:#222;white-space:pre-wrap}
 .fs-toggle-btn.t1-off{background:rgba(255,255,255,.05);opacity:.55}
 
 /* DESCRIPTIVE QUESTION UI */
@@ -874,19 +874,29 @@ const T1X = (function(){
   // shrinks further if the content would actually overflow the box —
   // never grows past what the user picked, never shrinks below a hard
   // readable floor, and re-measures after layout has actually settled
-  // (double rAF + retries) instead of guessing too early. ----
+  // (double rAF + retries) instead of guessing too early.
+  // NOTE: sizes are set as direct inline style.fontSize in px on the actual
+  // text elements (not a CSS variable + calc()) — inline style always wins
+  // over any stylesheet rule, so this can't be silently overridden by the
+  // cascade, caching of an older stylesheet, or calc()/var() support quirks.
   let scalePct = parseInt(localStorage.getItem("t1_scale") || "50", 10); // 50 = preferred 100% font
   const FLOOR_MULT = 0.6; // never render smaller than 60% of the base 16px/15px size
+  const BASE_Q_PX = 16, BASE_OPT_PX = 15;
   function getScalePct(){ return scalePct; }
   function pctToMult(pct){ return 0.5 + (pct/100); } // 0%->0.5x, 50%->1.0x, 100%->1.5x
   function setScalePct(pct){
     scalePct = Math.max(0, Math.min(100, pct));
     localStorage.setItem("t1_scale", scalePct);
   }
+  function applyMult(container, mult){
+    if (!container) return;
+    container.querySelectorAll(".q-text").forEach(el => { el.style.fontSize = (BASE_Q_PX*mult).toFixed(1)+"px"; });
+    container.querySelectorAll(".opt-text").forEach(el => { el.style.fontSize = (BASE_OPT_PX*mult).toFixed(1)+"px"; });
+  }
   function autoFit(container){
     if (!container) return;
     const base = pctToMult(scalePct);
-    container.style.setProperty("--t1-fit-scale", base);
+    applyMult(container, base);
     let tries = 0;
     const measure = () => {
       tries++;
@@ -895,7 +905,7 @@ const T1X = (function(){
       let mult = base, guard = 0;
       while (mult > FLOOR_MULT && container.scrollHeight > availH + 1 && guard < 40){
         mult = Math.max(FLOOR_MULT, mult - 0.04);
-        container.style.setProperty("--t1-fit-scale", mult.toFixed(2));
+        applyMult(container, mult);
         guard++;
       }
     };
