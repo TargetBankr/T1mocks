@@ -571,7 +571,15 @@ details[open].q-desc-hint summary{border-bottom:1px solid var(--c-line)}
     <div class="tb-center" id="tb-exam-title">Mock Test</div>
     <div class="tb-right">
       <button class="fs-toggle-btn" id="btn-lang-toggle" title="Switch language" type="button" style="display:none;font-size:12px;font-weight:700;width:auto;padding:0 9px">EN</button>
-      <button class="fs-toggle-btn" id="btn-fit-toggle" title="Toggle auto-fit text size" type="button">🔍</button>
+      <div style="position:relative">
+        <button class="fs-toggle-btn" id="btn-fit-toggle" title="Text size" type="button">🔍</button>
+        <div id="fit-popover" style="display:none;position:absolute;top:44px;right:0;background:#fff;border:1px solid #ddd;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:12px 14px;width:200px;z-index:50">
+          <div style="font-size:12px;color:#555;font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between">
+            <span>Text Size</span><span id="fit-pct-label">100%</span>
+          </div>
+          <input type="range" id="fit-slider" min="0" max="100" step="5" value="50" style="width:100%">
+        </div>
+      </div>
       <button class="fs-toggle-btn" id="btn-fs-toggle" title="Toggle fullscreen" type="button">⛶</button>
       <div class="tb-timer" id="tb-timer"><span class="lbl">TIME LEFT</span><span id="tb-timer-val">00:00</span></div>
     </div>
@@ -860,28 +868,20 @@ const T1X = (function(){
     } catch(e){}
   }
 
-  // ---- Font auto-fit: shrinks a container's font-size (via CSS var) until
-  // its content fits the available height, without scrolling. ----
-  let fitOn = localStorage.getItem("t1_fit") !== "off"; // default ON
-  function fitIsOn(){ return fitOn; }
-  function setFit(on){ fitOn=on; localStorage.setItem("t1_fit", on?"on":"off"); }
-  function autoFit(container, opts){
-    if (!container) return;
-    const o = opts || {};
-    const min = o.min || 12, max = o.max || 100, step = o.step || 2;
-    container.style.setProperty("--t1-fit-scale", max/100);
-    if (!fitOn) return;
-    let size = max;
-    const maxHeight = o.maxHeight || container.clientHeight || container.parentElement.clientHeight;
-    let guard = 0;
-    while (size > min && container.scrollHeight > maxHeight && guard < 50){
-      size -= step;
-      container.style.setProperty("--t1-fit-scale", size/100);
-      guard++;
-    }
+  // ---- Text size: manual scale (0%–100% slider maps to a 60%–150% font
+  // multiplier), applied directly as a CSS var — no auto-measuring, so it
+  // can't misfire. ----
+  let scalePct = parseInt(localStorage.getItem("t1_scale") || "50", 10); // 50 = default 100% font
+  function getScalePct(){ return scalePct; }
+  function pctToMult(pct){ return 0.5 + (pct/100); } // 0%->0.5x, 50%->1.0x, 100%->1.5x
+  function setScalePct(pct, el){
+    scalePct = Math.max(0, Math.min(100, pct));
+    localStorage.setItem("t1_scale", scalePct);
+    (el || document.getElementById("q-pane")).style.setProperty("--t1-fit-scale", pctToMult(scalePct));
   }
+  function applyScale(el){ (el || document.getElementById("q-pane")).style.setProperty("--t1-fit-scale", pctToMult(scalePct)); }
 
-  return { split, pick, isDual, setLang, getLang, renderMath, fitIsOn, setFit, autoFit };
+  return { split, pick, isDual, setLang, getLang, renderMath, getScalePct, setScalePct, applyScale };
 })();
 
 /* ---- 1. FIREBASE CONFIG ---- */
@@ -1592,7 +1592,7 @@ function renderCurrentQuestion(){
     $$("#q-options .q-opt").forEach(el=>{ el.addEventListener("click",()=>{ const L=el.dataset.letter; state.answers[q.qid]=L; $$("#q-options .q-opt").forEach(o=>o.classList.remove("selected")); el.classList.add("selected"); const radio=el.querySelector("input"); if(radio) radio.checked=true; saveState(); }); });
   }
   updateLangToggleVisibility(qs);
-  requestAnimationFrame(()=>T1X.autoFit($("#q-pane")));
+  T1X.applyScale($("#q-pane"));
   renderPalette(); saveState();
 }
 function updateLangToggleVisibility(qs){
@@ -1853,10 +1853,15 @@ function bindGlobalEvents(){
   $("#ssub-cancel").addEventListener("click",()=>hideModal("modal-section-submit"));
   $("#swsec-cancel").addEventListener("click",()=>hideModal("modal-switch-section"));
   $("#btn-fs-toggle").addEventListener("click",()=>{ const isFS=!!(document.fullscreenElement||document.webkitFullscreenElement); if(isFS) exitFullscreenLandscape(); else enterFullscreenLandscape(); });
-  $("#btn-fit-toggle").classList.toggle("t1-off",!T1X.fitIsOn());
-  $("#btn-fit-toggle").addEventListener("click",()=>{ const on=!T1X.fitIsOn(); T1X.setFit(on); $("#btn-fit-toggle").classList.toggle("t1-off",!on); requestAnimationFrame(()=>T1X.autoFit($("#q-pane"))); });
+  (function initFitSlider(){
+    const slider=$("#fit-slider"), pctLabel=$("#fit-pct-label"), popover=$("#fit-popover"), btn=$("#btn-fit-toggle");
+    slider.value=T1X.getScalePct();
+    pctLabel.textContent=Math.round(50+T1X.getScalePct())+"%"; // display as font-size % (50%-150%)
+    slider.addEventListener("input",()=>{ const v=parseInt(slider.value,10); T1X.setScalePct(v); pctLabel.textContent=Math.round(50+v)+"%"; });
+    btn.addEventListener("click",(e)=>{ e.stopPropagation(); popover.style.display=popover.style.display==="none"?"block":"none"; });
+    document.addEventListener("click",(e)=>{ if(popover.style.display!=="none" && !popover.contains(e.target) && e.target!==btn) popover.style.display="none"; });
+  })();
   $("#btn-lang-toggle").addEventListener("click",()=>{ T1X.setLang(T1X.getLang()==="hi"?"en":"hi"); renderCurrentQuestion(); });
-  window.addEventListener("resize",()=>{ if($("#screen-exam").classList.contains("active")) requestAnimationFrame(()=>T1X.autoFit($("#q-pane"))); });
   $("#ssub-confirm").addEventListener("click",()=>{
     hideModal("modal-section-submit");
     const sid=state.currentSectionId;
