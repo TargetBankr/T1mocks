@@ -26,6 +26,7 @@
   --top-h:60px;--bottom-h:64px;--palette-w:280px;--section-h:42px;
 }
 *{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;-moz-text-size-adjust:100%;text-size-adjust:100%}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--c-soft);color:var(--c-text);font-family:var(--sans);font-size:14px}
 button{font-family:inherit;cursor:pointer}
 a{color:var(--c-blue)}
@@ -1062,6 +1063,7 @@ async function doSignup(){
     const cred=await firebase.auth().createUserWithEmailAndPassword(email,pass);
     await cred.user.updateProfile({displayName:name});
     localStorage.setItem("tb_phone_"+cred.user.uid,phone);
+    if(db){ try{ await db.collection("users").doc(cred.user.uid).set({name,email,phone},{merge:true}); }catch(e){ console.warn("Signup profile save failed:",e.message); } }
     showAuthMsg("✅ Account created! Please sign in below.","ok");
     setTimeout(()=>{ switchAuthTab("signin"); $("#si-email").value=email; $("#si-pass").value=""; },1200);
     await firebase.auth().signOut();
@@ -1119,8 +1121,17 @@ function friendlyAuthErr(e){
 async function ensureUserDoc(){
   if(!db||!state.user) return;
   try{
-    await db.collection("users").doc(state.user.uid).set({
-      email: state.user.email||"", name: state.profile.name||state.user.displayName||""
+    const ref=db.collection("users").doc(state.user.uid);
+    const snap=await ref.get();
+    const existing=snap.exists?snap.data():{};
+    // Phone already in Firestore (synced across devices) wins. Otherwise fall
+    // back to whatever this device has locally (e.g. right after signup) and
+    // push it up to Firestore so it becomes permanent instead of only ever
+    // living in this one browser's localStorage.
+    const phone = existing.phone || state.profile.phone || "";
+    state.profile.phone = phone;
+    await ref.set({
+      email: state.user.email||"", name: state.profile.name||state.user.displayName||"", phone
     }, {merge:true});
   }catch(e){ console.warn("ensureUserDoc failed:",e.message); }
 }
